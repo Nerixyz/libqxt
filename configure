@@ -93,6 +93,8 @@ while (( $# > 0 )); do
         NO_ZEROCONF=1
     elif [ $1 == "-no-openssl" ]; then
         NO_OPENSSL=1
+        echo "DEFINES += QT_NO_OPENSSL" >> $QMAKE_CACHE
+        echo "DEFINES -= HAVE_OPENSSL" >> $QMAKE_CACHE
     elif [ $1 == "-no-avahi" ]; then
         echo "CONFIG += NO_AVAHI" >> $QMAKE_CACHE
     elif [ $1 == "-verbose" ]; then

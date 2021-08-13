@@ -42,7 +42,7 @@
 #include "qxtpop3statreply.h"
 #include "qxtrpcpeer.h"
 #include "qxtsmtp.h"
-#ifdef HAVE_OPENSSL
+#ifndef NO_LIBSSH
 #include "qxtsshchannel.h"
 #include "qxtsshclient.h"
 #include "qxtsshprocess.h"

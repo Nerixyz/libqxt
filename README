@@ -4,14 +4,14 @@
 
     	see configure --help for more information
 
-    	(for msvc you could try  ./configure.bat -msvc and open 
+    	(for msvc you could try  ./configure.bat -msvc and open
     		the solution file in msvc, we recomend compiling on
     		commandline though)
 
 2) build
-	
+
 	type make or nmake when using msvc
-	then don't forget to make install 
+	then don't forget to make install
 	Note: This will also install qxt.prf to your qtdir/mkspecs/features directory.
 
 
@@ -26,7 +26,7 @@
 	Note: Some modules depend on other modules. The required modules are added automatically.
 
 	if you have an existing msvc project and can't swtich to qmake you can use zbenjamins solution:
-	
+
 	     Howto use libqxt in a existing Visual Studio Project:
 	      1.  create and install libqxt. (See install instructions)
 	      2.  add {libqxtinstalldir}\include\qxt\QxtCore to your include path
@@ -50,3 +50,16 @@ to avoid copying files which will be rebuilt anyway.
 For RPM packages, you will need a standard .rpmmacros file in your home
 directory. A sample file, "rpmmacros-sample", is contained in the packages
 directory and must be edited for your environment before use.
+
+==============================================================================
+
+Static builds from git (experimental):
+
+Copy libqxt_git.pri into your project and add it to your qmake project file:
+
+include(libqxt_git.pri)
+
+Use the QXT variable as described above to choose which Qxt libraries you wish to include.
+
+When you "make" your project, it will automatically clone the libqxt git repository, build
+the necessary dependencies, and statically link it to your project.

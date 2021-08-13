@@ -6,6 +6,7 @@ WHICH=which
 NO_DB=0
 NO_ZEROCONF=0
 NO_OPENSSL=0
+NO_LIBSSH=0
 NO_XRANDR=0
 QXT_MODULES="docs berkeley core designer widgets network sql web zeroconf"
 
@@ -93,8 +94,12 @@ while (( $# > 0 )); do
         NO_ZEROCONF=1
     elif [ $1 == "-no-openssl" ]; then
         NO_OPENSSL=1
-        echo "DEFINES += QT_NO_OPENSSL" >> $QMAKE_CACHE
+        NO_LIBSSH=1
+        echo "DEFINES += QT_NO_OPENSSL NO_LIBSSH" >> $QMAKE_CACHE
         echo "DEFINES -= HAVE_OPENSSL" >> $QMAKE_CACHE
+    elif [ $1 == "-no-libssh" ]; then
+        NO_LIBSSH=1
+        echo "DEFINES += NO_LIBSSH" >> $QMAKE_CACHE
     elif [ $1 == "-no-avahi" ]; then
         echo "CONFIG += NO_AVAHI" >> $QMAKE_CACHE
     elif [ $1 == "-verbose" ]; then
@@ -150,7 +155,8 @@ while (( $# > 0 )); do
         fi
         echo "-no-db .............. Do not link to Berkeley DB"
         echo "-no-zeroconf ........ Do not link to Zeroconf"
-        echo "-no-openssl ......... Do not link to Openssl"
+        echo "-no-openssl ......... Do not link to OpenSSL"
+        echo "-no-libssh .......... Do not use libssh2"
         echo "-no-avahi ........... Apple mdns-sd instead of avahi even on linux"
         echo "-nomake <module> .... Do not compile the specified module"
         echo "                      options: $QXT_MODULES"

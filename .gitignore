@@ -50,3 +50,4 @@ bld.inf
 *.Debug
 .qmake.stash
 bin
+.build

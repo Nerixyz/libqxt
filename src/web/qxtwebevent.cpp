@@ -32,6 +32,7 @@
 #include "qxtwebevent.h"
 #include "qxtwebcontent.h"
 #include <QBuffer>
+#include <QThread>
 
 /*!
 \class QxtWebEvent

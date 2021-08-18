@@ -488,7 +488,7 @@ void QxtHttpSessionManager::disconnected(QIODevice* device)
         qxt_d().connectionState[device].clearHandlers();
     }
     qxt_d().connectionState.remove(device);
-    device->deleteLater(); 
+    device->deleteLater();
 }
 
 /*!

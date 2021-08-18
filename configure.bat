@@ -150,12 +150,18 @@ goto bottom
 
 :nodb
 set DB=0
-echo DEFINES -= HAVE_DB >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_DB >> %QMAKE_CACHE%
+echo DEFINES += QXT_NO_DB >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_DB >> %QXT_VARS%
+echo DEFINES += QXT_NO_DB >> %QXT_VARS%
 goto bottom
 
 :nozeroconf
 set ZEROCONF=0
-echo DEFINES -= HAVE_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES += QXT_NO_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_ZEROCONF >> %QXT_VARS%
+echo DEFINES += QXT_NO_ZEROCONF >> %QXT_VARS%
 goto bottom
 
 :msvc
@@ -309,18 +315,24 @@ call %MAKE_BIN% clean >> %CONFIG_LOG% 2>&1
 call %MAKE_BIN% >> %CONFIG_LOG% 2>&1
 if errorlevel 1 goto dbfailed
 set DB=1
-echo DEFINES += HAVE_DB >> %QMAKE_CACHE%
+echo DEFINES += QXT_HAVE_DB >> %QMAKE_CACHE%
+echo DEFINES -= QXT_NO_DB >> %QMAKE_CACHE%
+echo DEFINES += QXT_HAVE_DB >> %QXT_VARS%
+echo DEFINES -= QXT_NO_DB >> %QXT_VARS%
 echo        Berkeley DB enabled.
 goto detectzeroconf
 
 :dbfailed
 set DB=0
-echo DEFINES -= HAVE_DB >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_DB >> %QMAKE_CACHE%
+echo DEFINES += QXT_NO_DB >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_DB >> %QXT_VARS%
+echo DEFINES += QXT_NO_DB >> %QXT_VARS%
 echo        Berkeley DB disabled.
 
 :detectzeroconf
 if "%ZEROCONF%"=="0" goto alltestsok
-echo    Testing for Zero Conf...
+echo    Testing for Zeroconf...
 echo ZEROCONF... >> %CONFIG_LOG%
 if not exist %QXT_BUILD_TREE%\config.tests\zeroconf mkdir %QXT_BUILD_TREE%\config.tests\zeroconf
 cd %QXT_BUILD_TREE%\config.tests\zeroconf
@@ -330,14 +342,20 @@ call %MAKE_BIN% clean >> %CONFIG_LOG% 2>&1
 call %MAKE_BIN% >> %CONFIG_LOG% 2>&1
 if errorlevel 1 goto zeroconffailed
 set ZEROCONF=1
-echo DEFINES += HAVE_ZEROCONF >> %QMAKE_CACHE%
-echo        Zero Conf enabled.
+echo DEFINES += QXT_HAVE_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES -= QXT_NO_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES += QXT_HAVE_ZEROCONF >> %QXT_VARS%
+echo DEFINES -= QXT_NO_ZEROCONF >> %QXT_VARS%
+echo        Zeroconf enabled.
 goto alltestsok
 
 :zeroconffailed
 set ZEROCONF=0
-echo DEFINES -= HAVE_ZEROCONF >> %QMAKE_CACHE%
-echo        Zero Conf disabled.
+echo DEFINES -= QXT_HAVE_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES += QXT_NO_ZEROCONF >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_ZEROCONF >> %QXT_VARS%
+echo DEFINES += QXT_NO_ZEROCONF >> %QXT_VARS%
+echo        Zeroconf disabled.
 
 :alltestsok
 if "%DEBUG_OR_RELEASE%"=="1" goto skiprelease

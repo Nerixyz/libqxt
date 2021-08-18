@@ -4,7 +4,7 @@
 
 TEMPLATE = subdirs
 
-contains(DEFINES,HAVE_DB):contains(QXT_MODULES, berkeley):SUBDIRS += berkeley
+contains(DEFINES,QXT_HAVE_DB):contains(QXT_MODULES, berkeley):SUBDIRS += berkeley
 contains(QXT_MODULES, gui) {
     !macx:SUBDIRS += displaysettings
     SUBDIRS += qxtflowview
@@ -12,4 +12,4 @@ contains(QXT_MODULES, gui) {
 }
 contains(QXT_MODULES, network):SUBDIRS += ircpeer pop3
 contains(QXT_MODULES, web):SUBDIRS += web
-contains(DEFINES,HAVE_ZEROCONF):contains(QXT_MODULES, zeroconf):SUBDIRS += zeroconf
+contains(DEFINES,QXT_HAVE_ZEROCONF):contains(QXT_MODULES, zeroconf):SUBDIRS += zeroconf

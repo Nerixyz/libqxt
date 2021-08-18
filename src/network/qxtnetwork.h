@@ -47,7 +47,7 @@
 #include "qxtsshclient.h"
 #include "qxtsshprocess.h"
 #include "qxtsshtcpsocket.h"
-#endif // HAVE_OPENSSL
+#endif // NO_LIBSSH
 #include "qxtsslserver.h"
 #include "qxttcpconnectionmanager.h"
 #include "qxtxmlrpccall.h"

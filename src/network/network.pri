@@ -39,7 +39,7 @@ SOURCES += qxtpop3reply.cpp
 SOURCES += qxtsslserver.cpp
 SOURCES += qxtsslconnectionmanager.cpp
 
-contains(DEFINES,HAVE_OPENSSL):!contains(DEFINES,NO_LIBSSH) {
+contains(DEFINES,QXT_HAVE_OPENSSL):!contains(DEFINES,NO_LIBSSH) {
  HEADERS += qxtsshchannel.h
  HEADERS += qxtsshchannel_p.h
  HEADERS += qxtsshclient.h

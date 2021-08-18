@@ -89,12 +89,13 @@ public:
     QString method;
     QHostAddress remoteAddress;
     bool isSecure;
-#ifndef QT_NO_OPENSSL
-    QSslCertificate clientCertificate;
-#endif
 
     QMultiHash<QString, QString> cookies;
     QMultiHash<QString, QString> headers;
+
+#ifndef QT_NO_OPENSSL
+    QSslCertificate clientCertificate;
+#endif
 };
 
 /* TODO: refactor and implement

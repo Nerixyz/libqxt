@@ -7,7 +7,7 @@ CONVENIENCE     += $$CLEAN_TARGET
 include(network.pri)
 include(../qxtbase.pri)
 
-contains(DEFINES,HAVE_OPENSSL):!contains(DEFINES,NO_LIBSSH) {
+contains(DEFINES,QXT_HAVE_OPENSSL):!contains(DEFINES,NO_LIBSSH) {
  include(../3rdparty/libssh2/libssh2.pri)
 }
 

@@ -1,18 +1,24 @@
-QMAKE_EXTRA_TARGETS += libqxt libqxt_git libqxt_conf libqxt_distclean distclean
+QMAKE_EXTRA_TARGETS += libqxt libqxt_git libqxt_conf libqxt_update libqxt_build libqxt_distclean distclean
 
 libqxt_git.target = libqxt/configure
 libqxt_git.commands = git clone https://bitbucket.org/libqxt/libqxt
 
 libqxt_conf.target = libqxt/Makefile
-libqxt_conf.depends = libqxt_git libqxt_git.pri $$_PRO_FILE_
-libqxt_conf.commands = cd libqxt && ./configure -nomake docs -static
+libqxt_conf.depends = libqxt_git libqxt_git.pri libqxt/configure libqxt/.qmake.cache libqxt/features/qxtvars.prf $$_PRO_FILE_
+libqxt_conf.commands = cd libqxt && ./configure -nomake docs -static -no-pkgconfig
 
-libqxt.commands = $(MAKE) -C libqxt all
-libqxt.depends = libqxt_conf
-libqxt.CONFIG = recursive
-libqxt.commands = $(MAKE) -C libqxt all && rm -f libqxt/lib/*.prl
+libqxt_update.depends = FORCE
+libqxt_update.commands = -cd libqxt && git pull
 
-libqxt_distclean.commands = -$(DEL_FILE) -r libqxt
+libqxt.depends = FORCE libqxt_update libqxt_conf
+libqxt.commands = $(MAKE) -C libqxt all && touch libqxt/.build
+
+libqxt_build.target = libqxt/.build
+libqxt_build.depends = libqxt_conf
+libqxt_build.CONFIG = recursive
+libqxt_build.commands = $(MAKE) -C libqxt all && touch libqxt/.build
+
+libqxt_distclean.commands = git diff-index --quiet HEAD -- && $(DEL_FILE) -r libqxt
 distclean.depends = libqxt_distclean
 
 INCLUDEPATH += libqxt/include libqxt/src
@@ -22,9 +28,11 @@ CONFIG(debug,debug|release) {
 }
 
 contains(QXT,sql) {
+  QXT += core
   INCLUDEPATH += libqxt/include/QxtSql libqxt/src/sql
   LIBS += libqxt/lib/libQxtSql.a
   PRE_TARGETDEPS += libqxt/lib/libQxtSql.a
+  QMAKE_EXTRA_TARGETS += libqxtsql
   libqxtsql.target = libqxt/lib/libQxtSql.a
   libqxtsql.depends = libqxtcore
 } else {
@@ -32,9 +40,11 @@ contains(QXT,sql) {
 }
 
 contains(QXT,widgets) {
+  QXT += core
   INCLUDEPATH += libqxt/include/QxtWidgets libqxt/src/widgets
   LIBS += libqxt/lib/libQxtWidgets.a
   PRE_TARGETDEPS += libqxt/lib/libQxtWidgets.a
+  QMAKE_EXTRA_TARGETS += libqxtwidgets
   !packagesExist(xrandr) {
     libqxt_conf.commands += -no-xrandr
   }
@@ -45,6 +55,7 @@ contains(QXT,widgets) {
 }
 
 contains(QXT,berkeley) {
+  QXT += core
   INCLUDEPATH += libqxt/include/QxtBerkeley libqxt/src/bdb
   LIBS += libqxt/lib/libQxtBerkeley.a -ldb
   PRE_TARGETDEPS += libqxt/lib/libQxtBerkeley.a
@@ -81,7 +92,6 @@ contains(QXT,web) {
 
 contains(QXT,network) {
   !contains(QXT,openssl) {
-    DEFINES -= HAVE_OPENSSL
     libqxt_conf.commands += -no-openssl
     QXT -= libssh
   }
@@ -89,7 +99,6 @@ contains(QXT,network) {
   contains(QXT,libssh) {
     !win32: LIBS += -lcrypto -lz
   } else {
-    DEFINES += NO_LIBSSH
     libqxt_conf.commands += -no-libssh
   }
 
@@ -110,5 +119,7 @@ contains(QXT,core) {
   PRE_TARGETDEPS += libqxt/lib/libQxtCore.a
   QMAKE_EXTRA_TARGETS += libqxtcore
   libqxtcore.target = libqxt/lib/libQxtCore.a
-  libqxtcore.depends = libqxt
+  libqxtcore.depends = libqxt_build
 }
+
+include(libqxt/features/qxtvars.prf)

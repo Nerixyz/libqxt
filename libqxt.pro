@@ -55,7 +55,7 @@ contains( QXT_MODULES, sql ){
     SUBDIRS += sub_sql
 }
 
-!symbian:contains(DEFINES,HAVE_DB){
+!symbian:contains(DEFINES,QXT_HAVE_DB){
 contains( QXT_MODULES, bdb ){
     message( building bdb module )
     sub_berkeley.subdir = src/bdb
@@ -64,7 +64,7 @@ contains( QXT_MODULES, bdb ){
 }
 }
 
-!symbian:contains(DEFINES,HAVE_ZEROCONF){
+!symbian:contains(DEFINES,QXT_HAVE_ZEROCONF){
 contains( QXT_MODULES, zeroconf ){
     message( building zeroconf module )
     sub_zeroconf.subdir = src/zeroconf

@@ -37,14 +37,14 @@ include(qxtlibs.pri)
 
 macx {
     CONFIG(qt_no_framework): CONFIG += absolute_library_soname
-    CONFIG(qt_framework, qt_framework|qt_no_framework): CONFIG += lib_bundle 
+    CONFIG(qt_framework, qt_framework|qt_no_framework): CONFIG += lib_bundle
     FRAMEWORK_HEADERS.version = Versions
     FRAMEWORK_HEADERS.files   = $${HEADERS}
     FRAMEWORK_HEADERS.path    = Headers
     QMAKE_BUNDLE_DATA += FRAMEWORK_HEADERS
     QMAKE_LFLAGS += -F$${QXT_BUILD_TREE}/lib
 }
-unix|win32-g++* {
+unix|win32-g++*:!no_pkgconfig {
     CONFIG += create_pc create_prl
     QMAKE_PKGCONFIG_REQUIRES += QtCore
     QMAKE_PKGCONFIG_DESTDIR = pkgconfig

@@ -30,14 +30,14 @@
 *****************************************************************************/
 
 
-#ifdef HAVE_XRANDR
+#ifdef QXT_HAVE_XRANDR
 #include <X11/Xlib.h>
 #include <X11/extensions/Xrandr.h>
-#endif // HAVE_XRANDR
+#endif // QXT_HAVE_XRANDR
 
 void QxtScreenPrivate::init_sys()
 {
-#ifdef HAVE_XRANDR
+#ifdef QXT_HAVE_XRANDR
     Display* display = XOpenDisplay(NULL);
     Window root = RootWindow(display, screen);
     XRRScreenConfiguration* config = XRRGetScreenInfo(display, root);
@@ -74,7 +74,7 @@ void QxtScreenPrivate::init_sys()
 
     XRRFreeScreenConfigInfo(config);
     XCloseDisplay(display);
-#endif // HAVE_XRANDR
+#endif // QXT_HAVE_XRANDR
 }
 
 bool QxtScreenPrivate::set(const QSize& reso, int rate, int depth)
@@ -83,7 +83,7 @@ bool QxtScreenPrivate::set(const QSize& reso, int rate, int depth)
     Q_UNUSED(reso);
     Q_UNUSED(rate);
     Q_UNUSED(depth);
-#ifdef HAVE_XRANDR
+#ifdef QXT_HAVE_XRANDR
     Display* display = XOpenDisplay(NULL);
     Window root = RootWindow(display, screen);
     XRRScreenConfiguration* config = XRRGetScreenInfo(display, root);
@@ -102,6 +102,6 @@ bool QxtScreenPrivate::set(const QSize& reso, int rate, int depth)
 
     XRRFreeScreenConfigInfo(config);
     XCloseDisplay(display);
-#endif // HAVE_XRANDR
+#endif // QXT_HAVE_XRANDR
     return result;
 }

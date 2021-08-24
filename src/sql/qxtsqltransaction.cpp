@@ -46,57 +46,69 @@ QxtSqlException::QxtSqlException(const QSqlError& err, const QString& query)
   // initializers only
 }
 
-#define RESULT_WRAP(call) wrapped->call; QSqlResult::call
 class QxtSqlWrapResult : public QSqlResult
 {
 public:
-  QxtSqlWrapResult(QSqlResult* wrapped, const QSqlDriver* driver) : QSqlResult(driver), wrapped(wrapped)
+  QxtSqlWrapResult(const QSqlDatabase& db, const QSqlDriver* driver) : QSqlResult(driver), wrapped(db)
   { /* initializers only */ }
 
-  virtual QVariant handle() const { return wrapped->handle(); }
+  virtual QVariant handle() const { return wrapped.result()->handle(); }
 
 protected:
   virtual bool returnOrThrow(bool value)
   {
-    setLastError(wrapped->lastError());
+    setLastError(wrapped.lastError());
     if (!value) {
-      throw QxtSqlException(lastError(), lastQuery());
+      throw QxtSqlException(wrapped.lastError(), wrapped.executedQuery());
     }
     return true;
   }
 
-  virtual void setAt(int at) { RESULT_WRAP(setAt(at)); }
-  virtual void setActive(bool a) { RESULT_WRAP(setActive(a)); }
-  virtual void setLastError(const QSqlError& e) { RESULT_WRAP(setLastError(e)); }
-  virtual void setQuery(const QString& query) { RESULT_WRAP(setQuery(query)); }
-  virtual void setSelect(bool s) { RESULT_WRAP(setSelect(s)); }
-  virtual void setForwardOnly(bool forward) { RESULT_WRAP(setForwardOnly(forward)); }
-  virtual void bindValue(int pos, const QVariant& val, QSql::ParamType type) { RESULT_WRAP(bindValue(pos, val, type)); }
-  virtual void bindValue(const QString& placeholder, const QVariant& val, QSql::ParamType type) { RESULT_WRAP(bindValue(placeholder, val, type)); }
-  virtual QVariant data(int i) { return wrapped->data(i); }
-  virtual bool isNull(int i) { return wrapped->isNull(i); }
-  virtual bool fetch(int i) { return returnOrThrow(wrapped->fetch(i)); }
-  virtual bool fetchNext() { return returnOrThrow(wrapped->fetchNext()); }
-  virtual bool fetchPrevious() { return returnOrThrow(wrapped->fetchPrevious()); }
-  virtual bool fetchFirst() { return returnOrThrow(wrapped->fetchFirst()); }
-  virtual bool fetchLast() { return returnOrThrow(wrapped->fetchLast()); }
-  virtual int size() { return wrapped->size(); }
-  virtual int numRowsAffected() { return wrapped->numRowsAffected(); }
-  virtual QSqlRecord record() const { return wrapped->record(); }
-  virtual QVariant lastInsertId() const { return wrapped->lastInsertId(); }
-  virtual void virtual_hook(int id, void *data) { wrapped->virtual_hook(id, data); }
-  virtual void detachFromResultSet() { RESULT_WRAP(detachFromResultSet()); }
-  virtual void setNumericalPrecisionPolicy(QSql::NumericalPrecisionPolicy policy) { RESULT_WRAP(setNumericalPrecisionPolicy(policy)); }
-  virtual bool nextResult() { QSqlResult::nextResult(); return returnOrThrow(wrapped->nextResult()); }
+  virtual void setActive(bool a) { if (!a) wrapped.finish(); QSqlResult::setActive(a); }
+  virtual void setQuery(const QString& query) { setLastQuery(query); QSqlResult::setQuery(query); }
+  virtual void setForwardOnly(bool forward) { wrapped.setForwardOnly(forward); QSqlResult::setForwardOnly(forward); }
+  virtual void bindValue(int pos, const QVariant& val, QSql::ParamType type) { QSqlResult::bindValue(pos, val, type); wrapped.bindValue(pos, val, type); }
+  virtual void bindValue(const QString& pos, const QVariant& val, QSql::ParamType type) { QSqlResult::bindValue(pos, val, type); wrapped.bindValue(pos, val, type); }
+  virtual QVariant data(int i) { return wrapped.value(i); }
+  virtual bool isNull(int i) { return wrapped.isNull(i); }
+  virtual bool fetch(int i) { bool ok = wrapped.seek(i, false); setAt(wrapped.at()); return ok; }
+  virtual bool fetchNext() { bool ok = wrapped.next(); setAt(wrapped.at()); return ok; }
+  virtual bool fetchPrevious() { bool ok = wrapped.previous(); setAt(wrapped.at()); return ok; }
+  virtual bool fetchFirst() { bool ok = wrapped.first(); setAt(wrapped.at()); return ok; }
+  virtual bool fetchLast() { bool ok = wrapped.last(); setAt(wrapped.at()); return ok; }
+  virtual int size() { return wrapped.size(); }
+  virtual int numRowsAffected() { return wrapped.numRowsAffected(); }
+  virtual QSqlRecord record() const { return wrapped.record(); }
+  virtual QVariant lastInsertId() const { return wrapped.lastInsertId(); }
+  virtual void virtual_hook(int id, void *data) { const_cast<QSqlResult*>(wrapped.result())->virtual_hook(id, data); }
+  virtual void setNumericalPrecisionPolicy(QSql::NumericalPrecisionPolicy policy) { QSqlResult::setNumericalPrecisionPolicy(policy); wrapped.setNumericalPrecisionPolicy(policy); }
+  virtual bool nextResult() { QSqlResult::nextResult(); return returnOrThrow(wrapped.nextResult()); }
 
-  virtual bool reset(const QString& sqlquery) { return returnOrThrow(wrapped->reset(sqlquery)); }
-  virtual bool exec() { return returnOrThrow(wrapped->exec()); }
-  virtual bool prepare(const QString& query) { return returnOrThrow(wrapped->prepare(query)); }
-  virtual bool savePrepare(const QString& sqlquery) { return returnOrThrow(wrapped->savePrepare(sqlquery)); }
-  virtual bool execBatch(bool arrayBind = false) { return returnOrThrow(wrapped->execBatch(arrayBind)); }
+  virtual bool reset(const QString& sqlquery) {
+    setLastQuery(sqlquery);
+    returnOrThrow(wrapped.exec(sqlquery));
+    setActive(wrapped.isActive());
+    setSelect(wrapped.isSelect());
+    return true;
+  }
+  virtual bool exec() {
+    returnOrThrow(wrapped.exec());
+    setActive(wrapped.isActive());
+    setSelect(wrapped.isSelect());
+    return true;
+  }
+  virtual bool prepare(const QString& query) { setLastQuery(query); return returnOrThrow(wrapped.prepare(query)); }
+  virtual bool savePrepare(const QString& sqlquery) { setLastQuery(sqlquery); return returnOrThrow(wrapped.prepare(sqlquery)); }
+  virtual bool execBatch(bool arrayBind = false) { return returnOrThrow(wrapped.execBatch(arrayBind ? QSqlQuery::ValuesAsColumns : QSqlQuery::ValuesAsRows)); }
+
+  void setLastQuery(const QString& query) {
+    lastQuerySQL = query;
+    QSqlResult::setQuery(query);
+  }
 
 private:
-  QSqlResult* wrapped;
+  QSqlQuery wrapped;
+  QString lastQuerySQL;
 };
 
 class QxtSqlWrapDriver : public QSqlDriver
@@ -111,7 +123,7 @@ public:
   { throw QxtSqlException(QSqlError("cannot open QxtSqlWrapDriver", "cannot open QxtSqlWrapDriver", QSqlError::ConnectionError), ""); }
   virtual void close() { throw QxtSqlException(QSqlError("cannot close QxtSqlWrapDriver", "cannot close QxtSqlWrapDriver", QSqlError::ConnectionError), ""); }
   virtual bool isOpen() const { return db.isOpen(); }
-  virtual QSqlResult* createResult() const { return new QxtSqlWrapResult(drv->createResult(), this); }
+  virtual QSqlResult* createResult() const { return new QxtSqlWrapResult(db, this); }
   virtual bool hasFeature(QSqlDriver::DriverFeature feature) const { return drv->hasFeature(feature); }
   virtual bool beginTransaction() { return db.transaction(); }
   virtual bool commitTransaction() { return db.commit(); }
@@ -176,6 +188,9 @@ throw \l {QxtSqlException}.
 QxtSqlTransaction::QxtSqlTransaction(QSqlDatabase db) : db(db), committed(false)
 {
   driver = new QxtSqlWrapDriver(db);
+  if (!db.transaction()) {
+    throw QxtSqlException(db.lastError(), "BEGIN");
+  }
 }
 
 /*!

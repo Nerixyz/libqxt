@@ -68,6 +68,7 @@ posting events. It is reentrant for all other functionality.
 #include <QThread>
 #include <qxtmetaobject.h>
 #include <QTcpSocket>
+#include <QProcess>
 #ifndef QT_NO_OPENSSL
 #include <QSslSocket>
 #endif
@@ -83,6 +84,8 @@ public:
         bool finishedTransfer;
         bool keepAlive;
         bool streaming;
+        bool chunked;
+        bool sourceClosed;
         int httpMajorVersion;
         int httpMinorVersion;
         int sessionID;
@@ -591,6 +594,8 @@ void QxtHttpSessionManager::processEvents()
 
         source = pe->dataSource;
         state.finishedTransfer = false;
+        state.sourceClosed = false;
+        state.chunked = pe->chunked;
         bool emptyContent = !source->bytesAvailable() && !pe->streaming;
         state.readyRead = source->bytesAvailable();
         state.streaming = pe->streaming;
@@ -611,18 +616,21 @@ void QxtHttpSessionManager::processEvents()
                 state.keepAlive = false;
                 state.onBytesWritten = QxtMetaObject::bind(this, SLOT(sendNextBlock(int, QObject*)), Q_ARG(int, requestID), Q_ARG(QObject*, source));
                 state.onReadyRead = QxtMetaObject::bind(this, SLOT(blockReadyRead(int, QObject*)), Q_ARG(int, requestID), Q_ARG(QObject*, source));
-                state.onAboutToClose = QxtMetaObject::bind(this, SLOT(closeConnection(int)), Q_ARG(int, requestID));
             }
             else
             {
                 header.setValue("transfer-encoding", "chunked");
                 state.onBytesWritten = QxtMetaObject::bind(this, SLOT(sendNextChunk(int, QObject*)), Q_ARG(int, requestID), Q_ARG(QObject*, source));
                 state.onReadyRead = QxtMetaObject::bind(this, SLOT(chunkReadyRead(int, QObject*)), Q_ARG(int, requestID), Q_ARG(QObject*, source));
-                state.onAboutToClose = QxtMetaObject::bind(this, SLOT(sendEmptyChunk(int, QObject*)), Q_ARG(int, requestID), Q_ARG(QObject*, source));
             }
+            state.onAboutToClose = QxtMetaObject::bind(this, SLOT(sourceClosed(int, QObject*)), Q_ARG(int, requestID), Q_ARG(QObject*, source));
             QxtMetaObject::connect(device, SIGNAL(bytesWritten(qint64)), state.onBytesWritten, Qt::QueuedConnection);
             QxtMetaObject::connect(source, SIGNAL(readyRead()), state.onReadyRead, Qt::QueuedConnection);
             QxtMetaObject::connect(source, SIGNAL(aboutToClose()), state.onAboutToClose, Qt::QueuedConnection);
+            if (source->metaObject()->indexOfSignal("finished(int,QProcess::ExitStatus)") != -1) {
+              qRegisterMetaType<QProcess::ExitStatus>();
+              QxtMetaObject::connect(source, SIGNAL(finished(int,QProcess::ExitStatus)), state.onAboutToClose, Qt::QueuedConnection);
+            }
             QObject::connect(device, SIGNAL(destroyed()), source, SLOT(deleteLater()));
 
             if (state.keepAlive)
@@ -693,8 +701,28 @@ void QxtHttpSessionManager::sendNextChunk(int requestID, QObject* dataSourceObje
         device->write(data);
     }
     state.readyRead = false;
-    if (!state.streaming && !dataSource->bytesAvailable())
+    if ((!state.streaming || state.sourceClosed) && !dataSource->bytesAvailable())
         QMetaObject::invokeMethod(this, "sendEmptyChunk", Q_ARG(int, requestID), Q_ARG(QObject*, dataSource));
+}
+
+/*!
+ * \internal
+ */
+void QxtHttpSessionManager::sourceClosed(int requestID, QObject* dataSourceObject)
+{
+    QIODevice* device = connector()->getRequestConnection(requestID);
+    if (!qxt_d().connectionState.contains(device)) return;  // in case a disconnect signal and a bytesWritten signal get fired in the wrong order
+    QxtHttpSessionManagerPrivate::ConnectionState& state = qxt_d().connectionState[device];
+    if (state.finishedTransfer) return;
+    state.sourceClosed = true;
+    QIODevice* dataSource = static_cast<QIODevice*>(dataSourceObject);
+    if (!dataSource->bytesAvailable()) {
+      if (state.chunked) {
+        sendEmptyChunk(requestID, dataSource);
+      } else {
+        closeConnection(requestID);
+      }
+    }
 }
 
 /*!
@@ -771,7 +799,7 @@ void QxtHttpSessionManager::sendNextBlock(int requestID, QObject* dataSourceObje
     QByteArray chunk = dataSource->read(32768); // empirically determined to be a good chunk size
     device->write(chunk);
     state.readyRead = false;
-    if (!state.streaming && !dataSource->bytesAvailable())
+    if ((!state.streaming || state.sourceClosed) && !dataSource->bytesAvailable())
     {
         closeConnection(requestID);
         dataSource->deleteLater();

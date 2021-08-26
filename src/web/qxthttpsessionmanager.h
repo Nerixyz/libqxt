@@ -93,6 +93,7 @@ private Q_SLOTS:
     void closeConnection(int requestID);
     void chunkReadyRead(int requestID, QObject* dataSource);
     void sendNextChunk(int requestID, QObject* dataSource);
+    void sourceClosed(int requestID, QObject* dataSource);
     void sendEmptyChunk(int requestID, QObject* dataSource);
     void blockReadyRead(int requestID, QObject* dataSource);
     void sendNextBlock(int requestID, QObject* dataSource);

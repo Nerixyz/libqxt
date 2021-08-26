@@ -143,7 +143,7 @@ QString QxtHtmlTemplate::render() const
                 qWarning("QxtHtmlTemplate::render()  unterminated <?= ");
                 continue;
             }
-
+            var = var.trimmed();
 
             if (!contains(var))
             {

@@ -3,8 +3,8 @@ QMAKE_EXTRA_TARGETS += libqxt libqxt_git libqxt_conf libqxt_update libqxt_build 
 libqxt_git.target = libqxt/configure
 libqxt_git.commands = git clone https://bitbucket.org/libqxt/libqxt
 
-libqxt_conf.target = libqxt/Makefile
-libqxt_conf.depends = libqxt_git libqxt_git.pri libqxt/configure libqxt/.qmake.cache libqxt/features/qxtvars.prf $$_PRO_FILE_
+libqxt_conf.target = libqxt/.qmake.cache
+libqxt_conf.depends = libqxt_git libqxt_git.pri libqxt/configure libqxt/features/qxtvars.prf $$_PRO_FILE_
 libqxt_conf.commands = cd libqxt && ./configure -nomake docs -static -no-pkgconfig
 
 libqxt_update.depends = FORCE
@@ -14,7 +14,7 @@ libqxt.depends = FORCE libqxt_update libqxt_conf
 libqxt.commands = $(MAKE) -C libqxt all && touch libqxt/.build
 
 libqxt_build.target = libqxt/.build
-libqxt_build.depends = libqxt_conf
+libqxt_build.depends = libqxt_conf libqxt/Makefile
 libqxt_build.CONFIG = recursive
 libqxt_build.commands = $(MAKE) -C libqxt all && touch libqxt/.build
 

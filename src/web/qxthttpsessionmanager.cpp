@@ -461,9 +461,9 @@ void QxtHttpSessionManager::incomingRequest(quint32 requestID, const QHttpReques
     foreach(const StringPair& line, header.values())
     {
         if (line.first.toLower() == "cookie") continue;
-        event->headers.insert(line.first, line.second);
+        event->headers.insert(line.first.toLower(), line.second);
     }
-    event->headers.insert("X-Request-Protocol", "HTTP/" + QString::number(state.httpMajorVersion) + '.' + QString::number(state.httpMinorVersion));
+    event->headers.insert("x-request-protocol", "HTTP/" + QString::number(state.httpMajorVersion) + '.' + QString::number(state.httpMinorVersion));
     if (sessionID && session(sessionID))
     {
         QxtAbstractWebService *service = session(sessionID);
@@ -610,6 +610,10 @@ void QxtHttpSessionManager::processEvents()
         {
             pe->dataSource = 0;     // so that it isn't destroyed when the event is deleted
             state.clearHandlers();  // disconnect old handlers
+            if (!pe->streaming)
+            {
+                header.setValue("content-length", QString::number(source->bytesAvailable()));
+            }
 
             if (!pe->chunked)
             {

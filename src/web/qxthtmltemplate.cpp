@@ -38,8 +38,15 @@
   \c{<?=} ... \c{?>} variable tags with supplied values.
 
   To assign a variable, use the \c [] operator. Substitutions are not applied
-  recursively; that is, if a variable contains \c{<?= =>} it will not be
+  recursively; that is, if a variable contains \c{<?= ?>} it will not be
   replaced and will appear unmodified in the rendered output.
+
+  Conditional sections are written using \c{<?? variable ?>} ... \c{<?/>} or
+  \c{<?! variable ?>} ... \c{<?/>}. When using \c{<??}, if \a variable is
+  assigned and non-empty, the content between these tags will be included, and
+  if \a variable is unassigned or if it is assigned to an empty string, the
+  content will be removed. When using \c{<?!}, this behavior is reversed; that
+  is, the content will be removed if the variable is assigned and non-empty.
 
   For example:
   \code
@@ -57,7 +64,11 @@
     <head>
       <title>Test Page</title>
     </head>
-    <body><?= content ?></body>
+    <body>
+      <?= content ?>
+      <?? content ?>Will appear<?/>
+      <?! content ?>Will not appear<?/>
+    </body>
   </html>
   \endcode
   then the rendered output would be:
@@ -66,7 +77,10 @@
     <head>
       <title>Test Page</title>
     </head>
-    <body>Hello, world!</body>
+    <body>
+      Hello, world!
+      Will appear
+    </body>
   </html>
   \endcode
 */
@@ -143,7 +157,7 @@ bool QxtHtmlTemplate::load(QIODevice* source)
     return false;
   }
 
-  data = QString::fromUtf8(source->readAll());
+  data = QString::fromUtf8(source->readAll()).replace("\r", "");
   while (!data.isEmpty() && data.back().isSpace()) {
     data.chop(1);
   }
@@ -157,23 +171,36 @@ bool QxtHtmlTemplate::load(QIODevice* source)
 /*!
   Renders the HTML template.
 
-  Variable names contained in \c{<?=} ... \c{?>} will be replaced with
-  the values assigned into the template.
+  See the description above for information about the syntax of template tags.
 */
 QString QxtHtmlTemplate::render() const
 {
+  QString indent = "\n";
+  int offset = 0;
+  return renderRecursive(offset, indent, false, 0).join("");
+}
+
+/*!
+  \internal
+
+  Renders the template until the next <?/>, tracking the position and current
+  indent level by reference. If skip is true, then all replacements are ignored,
+  all conditions are omitted whether true or false, and the function returns an
+  empty list.
+*/
+QStringList QxtHtmlTemplate::renderRecursive(int& i, QString& indent, bool skip, int depth) const
+{
   QStringList output;
   int len = data.size();
-  QString indent = "\n";
   bool inIndent = true;
-  int copyStart = 0;
+  int copyStart = i;
 
-  for (int i = 0; i < len; i++) {
+  for (; i < len; i++) {
     QChar ch = data.at(i);
     if (ch == '\n') {
       indent = "\n";
       inIndent = keepIndent;
-    } else if (inIndent && ch.isSpace() && ch != '\r') {
+    } else if (inIndent && ch.isSpace()) {
       indent += ch;
     } else {
       inIndent = false;
@@ -181,39 +208,82 @@ QString QxtHtmlTemplate::render() const
 
     if (ch == '<') {
       QString peek = data.mid(i, 3);
-      if (peek == "<?=") {
-        output << data.mid(copyStart, i - copyStart);
-        i += 3;
+      if (peek == "<?=" || peek == "<??" || peek == "<?!") {
+        if (!skip) {
+          output << data.mid(copyStart, i - copyStart);
+        }
         int varStart = i;
-        while (i < len && (data.at(i) != '?' || data.mid(i, 2) != "?>")) {
-          ++i;
-        }
-        if (i >= len) {
-          qWarning("QxtHtmlTemplate::render(): unterminated <?=");
-          break;
-        }
-        QString var = data.mid(varStart, i - varStart).trimmed();
-        i += 2;
-        copyStart = i;
+        QString var = readTagAt(i, len);
+        copyStart = i + 1;
         if (var.isEmpty()) {
-          qWarning("QxtHtmlTemplate::render(): empty tag");
-          continue;
-        } else if (!contains(var)) {
-          qWarning("QxtHtmlTemplate::render(): unused variable \"%s\"", qPrintable(var));
-          continue;
-        } else {
+          if (i >= len) {
+            qWarning("QxtHtmlTemplate::render(): unterminated %s", qPrintable(peek));
+            return output;
+          }
+          qWarning("QxtHtmlTemplate::render(): empty tag at %d", varStart);
+        }
+        if (peek == "<?=") {
+          if (skip) {
+            continue;
+          }
+          if (!var.isEmpty() && !contains(var)) {
+            qWarning("QxtHtmlTemplate::render(): unassigned variable \"%s\" at %d", qPrintable(var), varStart);
+          }
           QString replacement = value(var);
           if (keepIndent && indent.size() > 1) {
             replacement.replace("\n", indent);
           }
           output << replacement;
+        } else {
+          bool discard = skip || var.isEmpty() || value(var).isEmpty();
+          if (!skip && peek == "<?!") {
+            discard = !discard;
+          }
+          ++i;
+          output << renderRecursive(i, indent, discard, depth + 1);
+          copyStart = i + 1;
         }
+      } else if (peek == "<?/") {
+        if (!skip) {
+          output << data.mid(copyStart, i - copyStart);
+        }
+        if (depth == 0) {
+          qWarning("QxtHtmlTemplate::render(): unexpected <?/> at %d", i);
+        }
+        i += 3;
+        while (i < len && data[i] != '>') {
+          ++i;
+        }
+        if (depth > 0) {
+          return output;
+        }
+        copyStart = i + 1;
       }
     }
   }
-  if (copyStart < len) {
+  if (!skip && copyStart < len) {
     output << data.mid(copyStart);
   }
 
-  return output.join("");
+  return output;
+}
+
+/*!
+  \internal
+
+  Gets the variable name starting at the provided offset. Updates the offset
+  by reference to point to the last character of the tag.
+*/
+QString QxtHtmlTemplate::readTagAt(int& offset, int len) const
+{
+  offset += 3;
+  int varStart = offset;
+  while (offset < len && (data.at(offset) != '?' || data.mid(offset, 2) != "?>")) {
+    ++offset;
+  }
+  ++offset;
+  if (offset >= data.size()) {
+    return QString();
+  }
+  return data.mid(varStart, offset - varStart - 1).trimmed();
 }

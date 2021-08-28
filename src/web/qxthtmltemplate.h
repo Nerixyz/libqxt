@@ -53,6 +53,9 @@ public:
   QString render() const;
 
 private:
+  QStringList renderRecursive(int& offset, QString& indent, bool skip, int depth) const;
+  QString readTagAt(int& offset, int len) const;
+
   QString data;
   bool keepIndent;
 };

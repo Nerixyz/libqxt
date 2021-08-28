@@ -36,18 +36,25 @@
 #include <QString>
 #include <QHash>
 #include <qxtglobal.h>
+QT_FORWARD_DECLARE_CLASS(QIODevice)
 
 class QXT_WEB_EXPORT QxtHtmlTemplate : public QMap<QString, QString>
 {
 public:
-    QxtHtmlTemplate();
-    bool open(const QString& filename);
-    void load(const QString& data);
+  QxtHtmlTemplate();
 
-    QString render() const;
+  bool isIndentPreserved() const;
+  void setIndentPreserved(bool on);
+
+  bool open(const QString& filename);
+  bool load(QIODevice* source);
+  void load(const QString& data);
+
+  QString render() const;
 
 private:
-    QString data;
+  QString data;
+  bool keepIndent;
 };
 
 #endif // QXTHTMLTEMPLATE_H

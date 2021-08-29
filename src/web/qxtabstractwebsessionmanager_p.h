@@ -36,6 +36,7 @@
 #include <QPointer>
 #include <QHash>
 #include <QQueue>
+#include <QMutex>
 #include "qxtabstractwebsessionmanager.h"
 
 #ifndef QXT_DOXYGEN_RUN
@@ -49,6 +50,7 @@ public:
     QxtAbstractWebSessionManager::ServiceFactory* factory;
     QHash<int, QxtAbstractWebService*> sessions;
     QQueue<int> freeList;
+    mutable QMutex sessionMutex;
     int maxID;
 
     int getNextID();

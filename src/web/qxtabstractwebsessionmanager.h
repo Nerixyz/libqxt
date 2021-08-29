@@ -36,6 +36,7 @@
 #include <qxtglobal.h>
 class QxtAbstractWebService;
 class QxtWebEvent;
+class QMutex;
 
 class QxtAbstractWebSessionManagerPrivate;
 class QXT_WEB_EXPORT QxtAbstractWebSessionManager : public QObject
@@ -52,11 +53,14 @@ public:
     ServiceFactory* serviceFactory() const;
 
     QxtAbstractWebService* session(int sessionID) const;
+    void closeSession(int sessionID);
 
 public Q_SLOTS:
     virtual bool shutdown() = 0;
 
 protected:
+    QMutex* sessionMutex() const;
+
     int createService();
     virtual void sessionDestroyed(int sessionID);
 

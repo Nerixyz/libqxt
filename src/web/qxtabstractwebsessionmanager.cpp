@@ -72,30 +72,32 @@ clean up its internal session tracking data.
 #include <QtDebug>
 
 #ifndef QXT_DOXYGEN_RUN
-QxtAbstractWebSessionManagerPrivate::QxtAbstractWebSessionManagerPrivate() : factory(0), maxID(1)
+QxtAbstractWebSessionManagerPrivate::QxtAbstractWebSessionManagerPrivate()
+: factory(0), sessionMutex(QMutex::Recursive), maxID(1)
 {
-    // initializers only
+  // initializers only
 }
 
 void QxtAbstractWebSessionManagerPrivate::sessionDestroyed(int sessionID)
 {
-    if (sessions.contains(sessionID))
-    {
-        freeList.enqueue(sessionID);
-        sessions.remove(sessionID);
-	qxt_p().sessionDestroyed(sessionID);
-    }
+  QMutexLocker locker(&sessionMutex);
+  if (sessions.contains(sessionID))
+  {
+    freeList.enqueue(sessionID);
+    sessions.remove(sessionID);
+    qxt_p().sessionDestroyed(sessionID);
+  }
 }
 
 int QxtAbstractWebSessionManagerPrivate::getNextID()
 {
-    if (freeList.empty())
-    {
-        int next = maxID;
-        maxID++;
-        return next;
-    }
-    return freeList.dequeue();
+  if (freeList.empty())
+  {
+    int next = maxID;
+    maxID++;
+    return next;
+  }
+  return freeList.dequeue();
 }
 #endif
 
@@ -106,7 +108,7 @@ int QxtAbstractWebSessionManagerPrivate::getNextID()
  */
 QxtAbstractWebSessionManager::QxtAbstractWebSessionManager(QObject* parent) : QObject(parent)
 {
-    QXT_INIT_PRIVATE(QxtAbstractWebSessionManager);
+  QXT_INIT_PRIVATE(QxtAbstractWebSessionManager);
 }
 
 /*!
@@ -122,7 +124,7 @@ QxtAbstractWebSessionManager::QxtAbstractWebSessionManager(QObject* parent) : QO
  */
 void QxtAbstractWebSessionManager::setServiceFactory(ServiceFactory* factory)
 {
-    qxt_d().factory = factory;
+  qxt_d().factory = factory;
 }
 
 /*!
@@ -132,7 +134,7 @@ void QxtAbstractWebSessionManager::setServiceFactory(ServiceFactory* factory)
  */
 QxtAbstractWebSessionManager::ServiceFactory* QxtAbstractWebSessionManager::serviceFactory() const
 {
-    return qxt_d().factory;
+  return qxt_d().factory;
 }
 
 /*!
@@ -140,9 +142,23 @@ QxtAbstractWebSessionManager::ServiceFactory* QxtAbstractWebSessionManager::serv
  */
 QxtAbstractWebService* QxtAbstractWebSessionManager::session(int sessionID) const
 {
-    if (qxt_d().sessions.contains(sessionID))
-        return qxt_d().sessions[sessionID];
-    return 0;
+  QMutexLocker locker(sessionMutex());
+  if (qxt_d().sessions.contains(sessionID))
+    return qxt_d().sessions[sessionID];
+  return 0;
+}
+
+/*!
+ * Returns the mutex used to serialize access to session data structures.
+ *
+ * Subclasses may use this mutex to synchronize their own session data
+ * structures. This is a recursive mutex, so subclasses do not need to
+ * worry about deadlocking against QxtAbstractWebSessionManager's internal
+ * functions.
+ */
+QMutex* QxtAbstractWebSessionManager::sessionMutex() const
+{
+  return &qxt_d().sessionMutex;
 }
 
 /*!
@@ -153,14 +169,41 @@ QxtAbstractWebService* QxtAbstractWebSessionManager::session(int sessionID) cons
  */
 int QxtAbstractWebSessionManager::createService()
 {
-    int sessionID = qxt_d().getNextID();
-    if (!qxt_d().factory) return sessionID;
+  QMutexLocker locker(sessionMutex());
+  int sessionID = qxt_d().getNextID();
+  if (!qxt_d().factory) {
+    qxt_d().sessions[sessionID] = nullptr;
+    return sessionID;
+  }
 
-    QxtAbstractWebService* service = serviceFactory()(this, sessionID);
-    qxt_d().sessions[sessionID] = service;
-    // Using QxtBoundFunction to bind the sessionID to the slot invocation
-    QxtMetaObject::connect(service, SIGNAL(destroyed()), QxtMetaObject::bind(&qxt_d(), SLOT(sessionDestroyed(int)), Q_ARG(int, sessionID)), Qt::QueuedConnection);
-    return sessionID; // you can always get the service with this
+  QxtAbstractWebService* service = serviceFactory()(this, sessionID);
+  qxt_d().sessions[sessionID] = service;
+  // Using QxtBoundFunction to bind the sessionID to the slot invocation
+  QxtMetaObject::connect(service, SIGNAL(destroyed()), QxtMetaObject::bind(&qxt_d(), SLOT(sessionDestroyed(int)), Q_ARG(int, sessionID)), Qt::QueuedConnection);
+  return sessionID; // you can always get the service with this
+}
+
+/*!
+ * Destroys an existing session.
+ *
+ * If there is a service associated with the session, it will be deleted.
+ * The session ID may be reused.
+ *
+ * If the session ID is not in use, this function does nothing.
+ */
+void QxtAbstractWebSessionManager::closeSession(int sessionID)
+{
+  QMutexLocker locker(sessionMutex());
+  if (!qxt_d().sessions.contains(sessionID)) {
+    return;
+  }
+  QxtAbstractWebService* service = qxt_d().sessions.take(sessionID);
+  if (service) {
+    // This will trigger sessionDestroyed automatically
+    service->deleteLater();
+  } else {
+    qxt_d().sessionDestroyed(sessionID);
+  }
 }
 
 /*!

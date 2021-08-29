@@ -70,6 +70,8 @@ public:
 
     bool autoCreateSession() const;
     void setAutoCreateSession(bool enable);
+    virtual int newSession();
+    QString sessionKey(int sessionID) const;
 
     QxtAbstractWebService* staticContentService() const;
     void setStaticContentService(QxtAbstractWebService* service);
@@ -83,7 +85,6 @@ public:
 
 protected:
     virtual void sessionDestroyed(int sessionID);
-    virtual int newSession();
     virtual void incomingRequest(quint32 requestID, const QHttpRequestHeader& header, QxtWebContent* device);
 
 protected Q_SLOTS:

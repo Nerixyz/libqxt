@@ -98,8 +98,9 @@ public:
         }
     };
 
-    QxtHttpSessionManagerPrivate() : iface(QHostAddress::Any), port(80), sessionCookieName("sessionID"), connector(0), staticService(0), autoCreateSession(true),
-                eventLock(QMutex::Recursive), sessionLock(QMutex::Recursive) {}
+    QxtHttpSessionManagerPrivate()
+    : iface(QHostAddress::Any), port(80), sessionCookieName("sessionID"), connector(0), staticService(0),
+      autoCreateSession(true), eventLock(QMutex::Recursive) {}
     QXT_DECLARE_PUBLIC(QxtHttpSessionManager)
 
     QHostAddress iface;
@@ -113,7 +114,6 @@ public:
     QList<QxtWebEvent*> eventQueue;
     QHash<QPair<int,int>, QxtWebRequestEvent*> pendingRequests;
 
-    QMutex sessionLock;
     QHash<QUuid, int> sessionKeys;                      // sessionKey->sessionID
     QHash<QIODevice*, ConnectionState> connectionState; // connection->state
 
@@ -338,7 +338,6 @@ void QxtHttpSessionManager::postEvent(QxtWebEvent* h)
     qxt_d().eventLock.lock();
     qxt_d().eventQueue.append(h);
     qxt_d().eventLock.unlock();
-    // if(h->type() == QxtWebEvent::Page)
     QMetaObject::invokeMethod(this, "processEvents", Qt::QueuedConnection);
 }
 
@@ -348,11 +347,10 @@ void QxtHttpSessionManager::postEvent(QxtWebEvent* h)
  */
 void QxtHttpSessionManager::sessionDestroyed(int sessionID)
 {
-    QMutexLocker locker(&qxt_d().sessionLock);
-    QUuid key = qxt_d().sessionKeys.key(sessionID);
-//    qDebug() << Q_FUNC_INFO << "sessionID" << sessionID << "key" << key;
-    if(!key.isNull())
-	qxt_d().sessionKeys.remove(key);
+  QMutexLocker locker(sessionMutex());
+  QUuid key = qxt_d().sessionKeys.key(sessionID);
+  if(!key.isNull())
+    qxt_d().sessionKeys.remove(key);
 }
 
 /*!
@@ -364,7 +362,7 @@ void QxtHttpSessionManager::sessionDestroyed(int sessionID)
  */
 int QxtHttpSessionManager::newSession()
 {
-    QMutexLocker locker(&qxt_d().sessionLock);
+    QMutexLocker locker(sessionMutex());
     int sessionID = createService();
     QUuid key;
     do
@@ -375,6 +373,24 @@ int QxtHttpSessionManager::newSession()
     qxt_d().sessionKeys[key] = sessionID;
     postEvent(new QxtWebStoreCookieEvent(sessionID, qxt_d().sessionCookieName, key.toString()));
     return sessionID;
+}
+
+/*!
+ * Returns the session key for a specified session.
+ *
+ * If the specified session does not exist, returns a null QString.
+ *
+ * Be aware that this function is slow. Cache its result and avoid using it
+ * in performance-sensitive contexts.
+ */
+QString QxtHttpSessionManager::sessionKey(int sessionID) const
+{
+  QMutexLocker locker(sessionMutex());
+  QUuid uuid = qxt_d().sessionKeys.key(sessionID);
+  if (uuid.isNull()) {
+    return QString();
+  }
+  return uuid.toString();
 }
 
 /*!
@@ -405,7 +421,7 @@ void QxtHttpSessionManager::incomingRequest(quint32 requestID, const QHttpReques
     int sessionID;
     QString sessionCookie = cookies.value(qxt_d().sessionCookieName);
 
-    qxt_d().sessionLock.lock();
+    sessionMutex()->lock();
     if (qxt_d().sessionKeys.contains(sessionCookie))
     {
         sessionID = qxt_d().sessionKeys[sessionCookie];
@@ -430,7 +446,7 @@ void QxtHttpSessionManager::incomingRequest(quint32 requestID, const QHttpReques
         state.keepAlive = false;
     else
         state.keepAlive = true;
-    qxt_d().sessionLock.unlock();
+    sessionMutex()->unlock();
 
     QxtWebRequestEvent* event = new QxtWebRequestEvent(sessionID, requestID, QUrl::fromEncoded(header.path().toUtf8()));
     qxt_d().eventLock.lock();
@@ -486,7 +502,7 @@ void QxtHttpSessionManager::incomingRequest(quint32 requestID, const QHttpReques
  */
 void QxtHttpSessionManager::disconnected(QIODevice* device)
 {
-    QMutexLocker locker(&qxt_d().sessionLock);
+    QMutexLocker locker(sessionMutex());
     if (qxt_d().connectionState.contains(device)) {
         qxt_d().connectionState[device].clearHandlers();
     }

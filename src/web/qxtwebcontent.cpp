@@ -276,7 +276,7 @@ QHash<QString, QString> QxtWebContent::parseUrlEncodedQuery(const QString& data)
 #if QT_VERSION < QT_VERSION_CHECK(5,0,0)
     QUrl post("/?" + data);
 #else
-    QUrlQuery post("/?" + data);
+    QUrlQuery post(data);
 #endif
     foreach(const QxtQueryItem& item, post.queryItems())
     {

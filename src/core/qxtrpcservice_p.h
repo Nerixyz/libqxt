@@ -83,6 +83,9 @@ public:
     // Maps an RPC function name to a list of slot connections.
     QHash<QString, QList<SlotDef> > connectedSlots;
 
+    // A slot that handles RPC functions that aren't connected to a slot.
+    SlotDef fallbackSlot;
+
     // Maps a slot's metamethod to an array of parameter type names.
     QHash<MetaMethodDef, QList<QByteArray> > slotParameters;
 
@@ -95,7 +98,7 @@ public:
                             const QVariant& p2 = QVariant(), const QVariant& p3 = QVariant(),
                             const QVariant& p4 = QVariant(), const QVariant& p5 = QVariant(),
                             const QVariant& p6 = QVariant(), const QVariant& p7 = QVariant()) const;
-    void dispatchFromClient(quint64 id, const QString& fn, const QVariant& p0 = QVariant(), 
+    void dispatchFromClient(quint64 id, const QString& fn, const QVariant& p0 = QVariant(),
                             const QVariant& p1 = QVariant(), const QVariant& p2 = QVariant(),
                             const QVariant& p3 = QVariant(), const QVariant& p4 = QVariant(),
                             const QVariant& p5 = QVariant(), const QVariant& p6 = QVariant(),

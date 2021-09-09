@@ -69,6 +69,7 @@ public:
     bool attachSignal(QObject* sender, const char* signal, const QString& rpcFunction = QString());
     bool attachSlot(const QString& rpcFunction, QObject* recv, const char* slot,
             Qt::ConnectionType type = Qt::AutoConnection);
+    bool setFallbackSlot(QObject* recv, const char* slot, Qt::ConnectionType = Qt::AutoConnection);
     void detachSignals(QObject* obj);
     void detachSlots(QObject* obj);
     void detachObject(QObject* obj);

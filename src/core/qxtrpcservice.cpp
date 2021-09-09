@@ -53,10 +53,10 @@ static bool qxt_rpcservice_debug = false;
  * \inmodule QxtCore
  * \brief The QxtRPCService class transmits Qt signals over a QIODevice
  *
- * QxtRPCService is a tool that encapsulates Qt signals and transmits them over a QIODevice. The signal is subsequently 
+ * QxtRPCService is a tool that encapsulates Qt signals and transmits them over a QIODevice. The signal is subsequently
  * re-emitted on the receiving end of the connection.
  *
- * QxtRPCService can act as a client or a server. When acting as a server, it uses a QxtAbstractConnectionManager to 
+ * QxtRPCService can act as a client or a server. When acting as a server, it uses a QxtAbstractConnectionManager to
  * accept connections. When acting as a client, the application should provide an already-connected QIODevice to the
  * setDevice() function.
  *
@@ -100,7 +100,7 @@ public:
     // A signal connection can be identified by the object emitting it and the signature of the signal.
     typedef QPair<QObject*, QByteArray> SignalDef;
 
-    // Maps a signal connection to one or more dynamic slot IDs. 
+    // Maps a signal connection to one or more dynamic slot IDs.
     QMultiHash<SignalDef, int> signalToId;
 
     // Maps a dynamic slot ID to an entry in signalParameters.
@@ -171,7 +171,7 @@ bool QxtRPCServiceIntrospector::addSignal(QObject* obj, const char* signature, c
     if(!success) {
         // Presumedly connect() will output its own warning.
         // The remaining setup is unnecessary if the connection failed.
-        return false; 
+        return false;
     }
 
     // Associate the signal and source object with the dynamic slot.
@@ -256,8 +256,8 @@ int QxtRPCServiceIntrospector::qt_metacall(QMetaObject::Call _c, int _id, void *
 QxtRPCServicePrivate::QxtRPCServicePrivate()
 : QObject(NULL), manager(NULL), serializer(new QxtDataStreamSignalSerializer), device(NULL)
 {
-    // initializers only
-    // As you can see, the default serializer is a QxtDataStreamSerializer.
+    // The default serializer is a QxtDataStreamSerializer.
+    fallbackSlot.recv = nullptr;
 }
 
 void QxtRPCServicePrivate::clientConnected(QIODevice* dev, quint64 id)
@@ -303,7 +303,7 @@ void QxtRPCServicePrivate::clientData(quint64 id)
     QIODevice* dev = manager->client(id);
 
     // Cache a reference to the buffer.
-    QByteArray& buf = buffers[id]; 
+    QByteArray& buf = buffers[id];
 
     // Read all available data on the device.
     buf.append(dev->readAll());
@@ -375,8 +375,9 @@ void QxtRPCServicePrivate::dispatchFromServer(const QString& fn, const QVariant&
         const QVariant& p7) const
 {
     // If the received message is not connected to any slots, ignore it.
-    if(!connectedSlots.contains(fn)) return;
+    if(!connectedSlots.contains(fn) && !fallbackSlot.recv) return;
 
+    bool sent = false;
     foreach(const SlotDef& slot, connectedSlots.value(fn)) {
         // Look up the parameters for each slot based on its metamethod definition.
         MetaMethodDef method = qMakePair(slot.recv->metaObject(), slot.slot);
@@ -386,11 +387,23 @@ void QxtRPCServicePrivate::dispatchFromServer(const QString& fn, const QVariant&
         // Invoke the specified slot on the receiver object using the arguments passed to the function. The
         // QGenericArgument stuff is done here for safety, as it's not inconceivable (but it IS dangerous) for
         // different slots to have different parameter lists.
-        if(qxt_rpcservice_debug) 
+        if(qxt_rpcservice_debug)
             qDebug() << "QxtRPCService: received" << fn << "- invoking" << slot.recv << slot.slot.constData() << slot.type << p0 << p1 << p2 << p3 << p4 << p5 << p6 << p7;
-        if(!QMetaObject::invokeMethod(slot.recv, slot.slot.constData(), slot.type, QXT_ARG(0), QXT_ARG(1), QXT_ARG(2),
+        if(QMetaObject::invokeMethod(slot.recv, slot.slot.constData(), slot.type, QXT_ARG(0), QXT_ARG(1), QXT_ARG(2),
                     QXT_ARG(3), QXT_ARG(4), QXT_ARG(5), QXT_ARG(6), QXT_ARG(7))) {
+            sent = true;
+        } else {
             qWarning() << "QxtRPCService: invokeMethod for " << slot.recv << "::" << slot.slot << " failed";
+        }
+    }
+    if (!sent && fallbackSlot.recv) {
+        MetaMethodDef method = qMakePair(fallbackSlot.recv->metaObject(), fallbackSlot.slot);
+        const QList<QByteArray>& params = slotParameters.value(method);
+        int numParams = params.count() - 1;
+
+        if(!QMetaObject::invokeMethod(fallbackSlot.recv, fallbackSlot.slot.constData(), fallbackSlot.type, Q_ARG(QString,fn), QXT_ARG(0), QXT_ARG(1), QXT_ARG(2),
+                    QXT_ARG(3), QXT_ARG(4), QXT_ARG(5), QXT_ARG(6), QXT_ARG(7))) {
+            qWarning() << "QxtRPCService: invokeMethod for " << fallbackSlot.recv << "::" << fallbackSlot.slot << " failed";
         }
     }
 }
@@ -400,27 +413,40 @@ void QxtRPCServicePrivate::dispatchFromClient(quint64 id, const QString& fn, con
         const QVariant& p7) const
 {
     // If the received message is not connected to any slots, ignore it.
-    if(!connectedSlots.contains(fn)) return; 
+    if(!connectedSlots.contains(fn) && !fallbackSlot.recv) return;
 
+    bool sent = false;
     foreach(const SlotDef& slot, connectedSlots.value(fn))
     {
         // Look up the parameters for each slot based on its metamethod definition.
         MetaMethodDef method = qMakePair(slot.recv->metaObject(), slot.slot);
         const QList<QByteArray>& params = slotParameters.value(method);
-        int numParams = params.count();
+        int numParams = params.count() - 1;
 
         // Invoke the specified slot on the receiver object using the arguments passed to the function.
         // See dispatchFromServer() for a discussion of the safety of QXT_ARG here.
-        if(qxt_rpcservice_debug) 
+        if(qxt_rpcservice_debug)
             qDebug() << "QxtRPCService: received" << fn << "- invoking" << slot.recv << slot.slot.constData() << slot.type << id << p0 << p1 << p2 << p3 << p4 << p5 << p6 << p7;
-		
-		// Use AutoConnection to invoke the method if Unique Connection was specified (since Unique Connection does not make sense to invokeMethod)	
-		Qt::ConnectionType actualSlotType = slot.type;		
-		if (actualSlotType == Qt::UniqueConnection)
-			actualSlotType = Qt::AutoConnection;
-        if(!QMetaObject::invokeMethod(slot.recv, slot.slot.constData(), actualSlotType, Q_ARG(quint64, id), QXT_ARG(0),
+
+        // Use AutoConnection to invoke the method if Unique Connection was specified (since Unique Connection does not make sense to invokeMethod)
+        Qt::ConnectionType actualSlotType = slot.type;
+        if (actualSlotType == Qt::UniqueConnection)
+            actualSlotType = Qt::AutoConnection;
+        if(QMetaObject::invokeMethod(slot.recv, slot.slot.constData(), actualSlotType, Q_ARG(quint64, id), QXT_ARG(0),
                     QXT_ARG(1), QXT_ARG(2), QXT_ARG(3), QXT_ARG(4), QXT_ARG(5), QXT_ARG(6), QXT_ARG(7))) {
+            sent = true;
+        } else {
             qWarning() << "QxtRPCService: invokeMethod for " << slot.recv << "::" << slot.slot << " failed";
+        }
+    }
+    if (!sent && fallbackSlot.recv) {
+        MetaMethodDef method = qMakePair(fallbackSlot.recv->metaObject(), fallbackSlot.slot);
+        const QList<QByteArray>& params = slotParameters.value(method);
+        int numParams = params.count() - 2;
+
+        if(!QMetaObject::invokeMethod(fallbackSlot.recv, fallbackSlot.slot.constData(), fallbackSlot.type, Q_ARG(quint64, id), Q_ARG(QString, fn),
+                    QXT_ARG(0), QXT_ARG(1), QXT_ARG(2), QXT_ARG(3), QXT_ARG(4), QXT_ARG(5), QXT_ARG(6), QXT_ARG(7))) {
+            qWarning() << "QxtRPCService: invokeMethod for " << fallbackSlot.recv << "::" << fallbackSlot.slot << " failed";
         }
     }
 }
@@ -527,7 +553,7 @@ void QxtRPCService::disconnectServer()
  */
 void QxtRPCService::disconnectAll()
 {
-    if(isClient()) 
+    if(isClient())
         disconnectServer();
 
     if(isServer()) {
@@ -650,7 +676,7 @@ void QxtRPCService::setConnectionManager(QxtAbstractConnectionManager* manager)
     if(qxt_d().manager)
         delete qxt_d().manager;
 
-    // Set the manager and claim ownership of it. 
+    // Set the manager and claim ownership of it.
     qxt_d().manager = manager;
     manager->setParent(this);
 
@@ -684,7 +710,7 @@ bool QxtRPCService::attachSignal(QObject* sender, const char* signal, const QStr
  * Like QObject::connect(), attachSlot() returns \c false if the connection cannot be established.
  * Also like QObject::connect(), a signal may be used as a slot; invocation will cause the signal to be emitted.
  *
- * \bold {Note:} When acting like a server, the first parameter of the slot must be <b>quint64 id</b>. The parameters 
+ * \bold {Note:} When acting like a server, the first parameter of the slot must be <b>quint64 id</b>. The parameters
  * of the incoming signal follow. For example, SIGNAL(mySignal(QString)) from the client connects to
  * SLOT(mySlot(quint64, QString)) on the server.
  */
@@ -714,7 +740,7 @@ bool QxtRPCService::attachSlot(const QString& rpcFunction, QObject* recv, const 
                 return false;
             }
         }
-        
+
         // Cache the looked-up parameter list.
         qxt_d().slotParameters[info] = types;
     }
@@ -736,6 +762,60 @@ bool QxtRPCService::attachSlot(const QString& rpcFunction, QObject* recv, const 
 	{
 		qxt_d().connectedSlots[rpcFunc].append(slotDef);
 	}
+
+    return true;
+}
+
+/*!
+ * Assigns a slot to handle RPC functions that are not attached to a slot.
+ *
+ * If a signal is received from the network is not handled by any attached slots, then
+ * it is instead dispatched to this slot.
+ * Use the SLOT() macro to specify the slot, just as you would for QObject::connect().
+ *
+ * Like QObject::connect(), setFallbackSlot() returns \c false if the connection cannot be established.
+ * Also like QObject::connect(), a signal may be used as a slot; invocation will cause the signal to be emitted.
+ *
+ * A <b>QString fn</b> parameter is inserted before the other parameters of the RPC function. This parameter
+ * contains the name of the RPC function that was not handled. When acting like a server, A <b>quint64 id</b>
+ * parameter is additionally inserted before the <b>fn</b> parameter to identify the client.
+ *
+ * \sa attachSlot
+ */
+bool QxtRPCService::setFallbackSlot(QObject* recv, const char* slot, Qt::ConnectionType type)
+{
+    const QMetaObject* meta = recv->metaObject();
+    QByteArray name = QxtMetaObject::methodName(slot);
+    QxtRPCServicePrivate::MetaMethodDef info = qMakePair(meta, name);
+
+    QByteArray norm = QxtMetaObject::methodSignature(slot);
+    int methodID = meta->indexOfMethod(norm.constData());
+    if(methodID < 0) {
+        // indexOfMethod() returns -1 if the method was not found, so report a warning and return an error.
+        qWarning() << "QxtRPCService::setFallbackSlot: " << recv << "::" << norm << " does not exist";
+        return false;
+    }
+
+    // Look up the method's parameter list, ensure each parameter is queueable, and cache the type IDs.
+    QList<QByteArray> types = meta->method(methodID).parameterTypes();
+    int ct = types.count();
+    for(int i = 0; i < ct; i++) {
+        int typeID = QMetaType::type(types.value(i).constData());
+        if(typeID <= 0) {
+            qWarning() << "QxtRPCService::setFallbackSlot: cannot queue arguments of type " << types.value(i);
+            return false;
+        }
+
+        // Cache the looked-up parameter list.
+        qxt_d().slotParameters[info] = types;
+    }
+
+    qxt_d().fallbackSlot.recv = recv;
+    qxt_d().fallbackSlot.slot = name;
+    if (type == Qt::UniqueConnection)
+        qxt_d().fallbackSlot.type = Qt::AutoConnection;
+    else
+        qxt_d().fallbackSlot.type = type;
 
     return true;
 }
@@ -770,6 +850,9 @@ void QxtRPCService::detachSlots(QObject* obj)
             qxt_d().connectedSlots[name].removeAll(slot);
         }
     }
+    if (qxt_d().fallbackSlot.recv == obj) {
+        qxt_d().fallbackSlot.recv = nullptr;
+    }
 }
 
 /*!
@@ -782,7 +865,7 @@ void QxtRPCService::call(QString fn, const QVariant& p1, const QVariant& p2, con
                          const QVariant& p5, const QVariant& p6, const QVariant& p7, const QVariant& p8)
 {
     if(isClient()) {
-        if(qxt_rpcservice_debug) 
+        if(qxt_rpcservice_debug)
             qDebug() << "QxtRPCService: calling" << fn << "on peer with parameters" << p1 << p2 << p3 << p4 << p5 << p6 << p7 << p8;
 
         // Normalize the function name if it has the form of a signal or slot.
@@ -809,7 +892,7 @@ void QxtRPCService::call(QString fn, const QVariant& p1, const QVariant& p2, con
 void QxtRPCService::call(QList<quint64> ids, QString fn, const QVariant& p1, const QVariant& p2, const QVariant& p3,
         const QVariant& p4, const QVariant& p5, const QVariant& p6, const QVariant& p7, const QVariant& p8)
 {
-    if(qxt_rpcservice_debug) 
+    if(qxt_rpcservice_debug)
         qDebug() << "QxtRPCService: calling" << fn << "on" << ids << "with parameters" << p1 << p2 << p3 << p4 << p5 << p6 << p7 << p8;
 
     // Serialize the parameters first.

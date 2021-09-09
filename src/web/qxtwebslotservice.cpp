@@ -109,8 +109,8 @@ void QxtWebSlotService::pageRequestedEvent(QxtWebRequestEvent* event)
     {
         // Substitute hyphens for underscores to be able
         // to dispatch hyphenated paths.
-        action = args.at(0).toUtf8().replace('-', '_');
-        if (action.trimmed().isEmpty())
+        action = args.at(0).section('.', 0, 0, QString::SectionSkipEmpty).trimmed().toUtf8().replace('-', '_');
+        if (action.isEmpty())
             action = "index";
         args.removeFirst();
     }

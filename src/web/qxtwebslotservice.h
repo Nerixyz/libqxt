@@ -41,10 +41,11 @@ class QXT_WEB_EXPORT QxtWebSlotService : public QxtAbstractWebService
 public:
     explicit QxtWebSlotService(QxtAbstractWebSessionManager* sm, QObject* parent = 0);
 
+    virtual void pageRequestedEvent(QxtWebRequestEvent* event);
+
 protected:
     QUrl self(QxtWebRequestEvent* event);
 
-    virtual void pageRequestedEvent(QxtWebRequestEvent* event);
     virtual void functionInvokedEvent(QxtWebRequestEvent* event);
 };
 

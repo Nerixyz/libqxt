@@ -34,7 +34,7 @@
 
 \inmodule QxtWeb
 
-\brief The QxtAbstractHttpConnector class is a base class for defining 
+\brief The QxtAbstractHttpConnector class is a base class for defining
 HTTP-based protocols for use with QxtHttpSessionManager
 
 QxtHttpSessionManager does the work of managing sessions and state for the
@@ -58,6 +58,10 @@ headers (by implementing writeHeaders(QIODevice*, const QHttpResponseHeader&)).
 #include <QIODevice>
 #include <QByteArray>
 #include <QPointer>
+#if QXT_HAVE_WEBSOCKETS
+#include <QWebSocketServer>
+#include <QWebSocket>
+#endif
 
 #ifndef QXT_DOXYGEN_RUN
 class QxtAbstractHttpConnectorPrivate : public QxtPrivate<QxtAbstractHttpConnector>
@@ -69,6 +73,17 @@ public:
     QHash<QIODevice*, QPointer<QxtWebContent> > contents;  // connection->content
     QHash<quint32, QIODevice*> requests;    // requestID->connection
     quint32 nextRequestID;
+#ifdef QXT_HAVE_WEBSOCKETS
+    QWebSocketServer wss;
+
+    struct WebSocketRequest {
+      QHttpRequestHeader header;
+      QPointer<QTcpSocket> device;
+    };
+    QHash<QString, WebSocketRequest> webSockets;
+
+    QxtAbstractHttpConnectorPrivate() : wss(QString(), QWebSocketServer::NonSecureMode) {}
+#endif
 
     inline quint32 getNextRequestID(QIODevice* connection)
     {
@@ -113,6 +128,9 @@ QxtAbstractHttpConnector::QxtAbstractHttpConnector(QObject* parent) : QObject(pa
 {
     QXT_INIT_PRIVATE(QxtAbstractHttpConnector);
     qxt_d().nextRequestID = 0;
+#ifdef QXT_HAVE_WEBSOCKETS
+    QObject::connect(&qxt_d().wss, SIGNAL(newConnection()), this, SLOT(websocketConnection()));
+#endif
 }
 
 /*!
@@ -173,72 +191,113 @@ void QxtAbstractHttpConnector::incomingData(QIODevice* device)
     }
     // Scope things so we don't block access during incomingRequest()
     QHttpRequestHeader header;
-    QxtWebContent *content = 0;
+    QxtWebContent *content = nullptr;
     {
-	// Fetch the incoming data block
-	QByteArray block = device->readAll();
-	// Check for a current content "device"
-	QReadLocker locker(&qxt_d().bufferLock);
-	content = qxt_d().contents[device];
-	if(content && (content->wantAll() || content->bytesNeeded() > 0)){
-	    // This block (or part of it) belongs to content device
-	    qint64 needed = block.size();
-	    if(!content->wantAll() && needed > content->bytesNeeded())
-		needed = content->bytesNeeded();
-	    content->write(block.constData(), needed);
-	    if(block.size() <= needed)
-		return; // Used it all ...
-	    block.remove(0, needed);
-	}
-	// The data received represents a new request (or start thereof)
-	qxt_d().contents[device] = content = NULL;
-	QByteArray& buffer = qxt_d().buffers[device];
-	buffer.append(block);
-	if (!canParseRequest(buffer)) return;
-	// Have received all of the headers so we can start processing
-	header = parseRequest(buffer);
-	QByteArray start;
-	int len = header.hasContentLength() ? int(header.contentLength()) : -1;
-	if(len > 0)
-	{
-	    if(len <= buffer.size()){
-		// This request is fully-received & excess is another request
-		// Leave in buffer & we'll fake a following "readyRead()"
-		start = buffer.left(len);
-		buffer = buffer.mid(len);
-		content = new QxtWebContent(start, this);
-		if(buffer.size() > 0)
-		    QMetaObject::invokeMethod(this, "incomingData",
-			    Qt::QueuedConnection, Q_ARG(QIODevice*, device));
-	    }
-	    else{
-		// This request isn't finished yet but may still have one to
-		// follow it. Remember the content device so we can append to
-		// it until we've got it all.
-		start = buffer;
-		buffer.clear();
-		qxt_d().contents[device] = content =
-		    new QxtWebContent(len, start, this, device);
-	    }
-	}
-	else if (header.hasKey("connection") && header.value("connection").toLower() == "close")
-	{
-	    // Not pipelining so we want to pass all remaining data to the
-	    // content device. Although 'len' will be -1, we're using an
-	    // explict value for clarity. This causes the content device
-	    // to indicate it wants all remaining data.
-	    start = buffer;
-	    buffer.clear();
-	    qxt_d().contents[device] = content =
-		new QxtWebContent(-1, start, this, device);
-	} // else no content
-	//
-	// NOTE: Buffer lock goes out of scope after this point
+      if (!device->isTransactionStarted()) {
+        device->startTransaction();
+      }
+      // Fetch the incoming data block
+      QByteArray block = device->readAll();
+      // Check for a current content "device"
+      QReadLocker locker(&qxt_d().bufferLock);
+      content = qxt_d().contents[device];
+      if(content && (content->wantAll() || content->bytesNeeded() > 0)){
+        // This block (or part of it) belongs to content device
+        qint64 needed = block.size();
+        if(!content->wantAll() && needed > content->bytesNeeded())
+          needed = content->bytesNeeded();
+        content->write(block.constData(), needed);
+        if(block.size() <= needed)
+          return; // Used it all ...
+        block.remove(0, needed);
+      }
+      // The data received represents a new request (or start thereof)
+      qxt_d().contents[device] = content = NULL;
+      QByteArray& buffer = qxt_d().buffers[device];
+      buffer.append(block);
+      if (!canParseRequest(buffer)) return;
+      // Have received all of the headers so we can start processing
+      header = parseRequest(buffer);
+#ifdef QXT_HAVE_WEBSOCKETS
+      if (header.value("upgrade").contains("websocket") && qobject_cast<QTcpSocket*>(device) && header.hasKey("sec-websocket-key")) {
+        // Prepare to receive the connection
+        QString key = header.value("sec-websocket-key");
+        qxt_d().webSockets[key] = (QxtAbstractHttpConnectorPrivate::WebSocketRequest){
+          header,
+          static_cast<QTcpSocket*>(device),
+        };
+        // Disconnect the readyRead signal to avoid disrupting the protocol.
+        QObject::disconnect(device, SIGNAL(readyRead()), this, SLOT(incomingData()));
+        // Put the headers back in the input buffer and pass off control.
+        device->rollbackTransaction();
+        qxt_d().wss.handleConnection(static_cast<QTcpSocket*>(device));
+        return;
+      }
+#endif
+      device->commitTransaction();
+      QByteArray start;
+      int len = header.hasContentLength() ? int(header.contentLength()) : -1;
+      if (len > 0) {
+        if (len <= buffer.size()) {
+          // This request is fully-received & excess is another request
+          // Leave in buffer & we'll fake a following "readyRead()"
+          start = buffer.left(len);
+          buffer = buffer.mid(len);
+          content = new QxtWebContent(start, this);
+          if(buffer.size() > 0)
+            QMetaObject::invokeMethod(this, "incomingData",
+                Qt::QueuedConnection, Q_ARG(QIODevice*, device));
+        } else {
+          // This request isn't finished yet but may still have one to
+          // follow it. Remember the content device so we can append to
+          // it until we've got it all.
+          start = buffer;
+          buffer.clear();
+          qxt_d().contents[device] = content =
+            new QxtWebContent(len, start, this, device);
+        }
+      } else if (header.hasKey("connection") && header.value("connection").toLower() == "close") {
+        // Not pipelining so we want to pass all remaining data to the
+        // content device. Although 'len' will be -1, we're using an
+        // explict value for clarity. This causes the content device
+        // to indicate it wants all remaining data.
+        start = buffer;
+        buffer.clear();
+        qxt_d().contents[device] = content =
+          new QxtWebContent(-1, start, this, device);
+      } // else no content
+      // NOTE: Buffer lock goes out of scope after this point
     }
     // Allocate request ID and process it
     quint32 requestID = qxt_d().getNextRequestID(device);
     sessionManager()->incomingRequest(requestID, header, content);
 }
+
+#ifdef QXT_HAVE_WEBSOCKETS
+/*!
+ * \internal
+ */
+void QxtAbstractHttpConnector::websocketConnection()
+{
+  QWebSocket* ws = qxt_d().wss.nextPendingConnection();
+  if (!ws) {
+    qWarning() << "QxtAbstractHttpConnector: unable to initiate WebSocket connection";
+    return;
+  }
+  QString key = QString::fromLatin1(ws->request().rawHeader("sec-websocket-key"));
+  auto req = qxt_d().webSockets.take(key);
+  if (!req.device) {
+    ws->close(QWebSocketProtocol::CloseCodeBadOperation);
+    ws->deleteLater();
+    return;
+  }
+  // The content is not stored in the lookup map because QxtWeb is handing off control.
+  ws->setParent(req.device.data());
+  QxtWebContent* content = new QxtWebContent(ws, this);
+  quint32 requestID = qxt_d().getNextRequestID(req.device);
+  sessionManager()->incomingRequest(requestID, req.header, content);
+}
+#endif
 
 /*!
  * \internal

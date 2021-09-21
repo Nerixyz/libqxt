@@ -60,31 +60,39 @@ QxtWeb uses QxtWebContent as an abstraction for streaming data.
 class QxtWebContentPrivate : public QxtPrivate<QxtWebContent>
 {
 public:
-    QxtWebContentPrivate() : bytesNeeded(0), ignoreRemaining(false) {}
-    QXT_DECLARE_PUBLIC(QxtWebContent)
+  QxtWebContentPrivate() : bytesNeeded(0), ignoreRemaining(false) {
+#ifdef QXT_HAVE_WEBSOCKETS
+    webSocket = nullptr;
+#endif
+  }
+  QXT_DECLARE_PUBLIC(QxtWebContent)
 
-    void init(int contentLength, QIODevice* device)
-    {
-        if (contentLength < 0)
-            bytesNeeded = -1;
-        else{
-            bytesNeeded = contentLength - qxt_p().bytesAvailable();
-	    Q_ASSERT(bytesNeeded >= 0);
-	}
-	if(device){
-	    // Connect a disconnected signal if it has one
-	    if(device->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(SIGNAL(disconnected()))) >= 0){
-		QObject::connect(device, SIGNAL(disconnected()), &qxt_p(), SLOT(sourceDisconnect()), Qt::QueuedConnection);
-	    }
-	    // Likewise, connect an error signal if it has one
-	    if(device->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(SIGNAL(error(QAbstractSocket::SocketError)))) >= 0){
-		QObject::connect(device, SIGNAL(error(QAbstractSocket::SocketError)), &qxt_p(), SLOT(errorReceived(QAbstractSocket::SocketError)));
-	    }
-	}
+  void init(int contentLength, QIODevice* device)
+  {
+    if (contentLength < 0) {
+      bytesNeeded = -1;
+    } else {
+      bytesNeeded = contentLength - qxt_p().bytesAvailable();
+      Q_ASSERT(bytesNeeded >= 0);
     }
+    if (device) {
+      // Connect a disconnected signal if it has one
+      if (device->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(SIGNAL(disconnected()))) >= 0) {
+        QObject::connect(device, SIGNAL(disconnected()), &qxt_p(), SLOT(sourceDisconnect()), Qt::QueuedConnection);
+      }
+      // Likewise, connect an error signal if it has one
+      if (device->metaObject()->indexOfSignal(QMetaObject::normalizedSignature(SIGNAL(error(QAbstractSocket::SocketError)))) >= 0) {
+        QObject::connect(device, SIGNAL(error(QAbstractSocket::SocketError)), &qxt_p(), SLOT(errorReceived(QAbstractSocket::SocketError)));
+      }
+    }
+  }
 
-    qint64 bytesNeeded;
-    bool ignoreRemaining;
+  qint64 bytesNeeded;
+  bool ignoreRemaining;
+
+#ifdef QXT_HAVE_WEBSOCKETS
+  QWebSocket* webSocket;
+#endif
 };
 #endif
 
@@ -97,7 +105,6 @@ public:
  * \a sourceDevice is used solely to detect socket errors and does not specify
  * parentage. This variation is ReadWrite to permit incoming data but should
  * never be written to by the service handler.
- *
  */
 QxtWebContent::QxtWebContent(int contentLength, const QByteArray& prime,
 	QObject *parent, QIODevice* sourceDevice) : QxtFifo(prime, parent)
@@ -105,6 +112,27 @@ QxtWebContent::QxtWebContent(int contentLength, const QByteArray& prime,
     QXT_INIT_PRIVATE(QxtWebContent);
     qxt_d().init(contentLength, sourceDevice);
 }
+
+#ifdef QXT_HAVE_WEBSOCKETS
+/*!
+ * Constructs a QxtWebContent object containing a \a QWebSocket with the specified \a parent.
+ *
+ * Instead of providing the content through the QIODevice interface, the content is provided
+ * as messages through a QWebSocket object.
+ */
+QxtWebContent::QxtWebContent(QWebSocket* ws, QObject *parent)
+: QxtFifo(QByteArray(), parent)
+{
+    QXT_INIT_PRIVATE(QxtWebContent);
+    qxt_d().init(0, 0);
+    qxt_d().webSocket = ws;
+}
+
+QWebSocket* QxtWebContent::webSocket() const
+{
+  return qxt_d().webSocket;
+}
+#endif
 
 /*!
  * Constructs a QxtWebContent object with the specified \a parent.

@@ -8,6 +8,7 @@ NO_ZEROCONF=0
 NO_OPENSSL=0
 NO_LIBSSH=0
 NO_XRANDR=0
+NO_WEBSOCKETS=0
 QXT_MODULES="docs berkeley core designer widgets network sql web zeroconf"
 
 # detect platform
@@ -121,6 +122,8 @@ while (( $# > 0 )); do
         NO_LIBSSH=1
     elif [ $1 == "-no-libssh" ]; then
         NO_LIBSSH=1
+    elif [ $1 == "-no-websockets" ]; then
+        NO_WEBSOCKETS=1
     elif [ $1 == "-no-avahi" ]; then
         echo "CONFIG += NO_AVAHI" >> $QMAKE_CACHE
     elif [ $1 == "-verbose" ]; then
@@ -178,6 +181,7 @@ while (( $# > 0 )); do
         echo "-no-zeroconf ........ Do not link to Zeroconf"
         echo "-no-openssl ......... Do not link to OpenSSL"
         echo "-no-libssh .......... Do not use libssh2"
+        echo "-no-websockets ...... Do not link to QtWebSockets"
         echo "-no-avahi ........... Apple mdns-sd instead of avahi even on linux"
         echo "-nomake <module> .... Do not compile the specified module"
         echo "                      options: $QXT_MODULES"
@@ -298,6 +302,7 @@ configtest qt4 QT 0
 configtest db DB $NO_DB
 configtest openssl OPENSSL $NO_OPENSSL
 configtest xrandr XRANDR $NO_XRANDR
+configtest websockets WEBSOCKETS $NO_WEBSOCKETS
 
 if [[ "$QXT_MAC" == "0" ]]; then
     configtest zeroconf ZEROCONF $NO_ZEROCONF

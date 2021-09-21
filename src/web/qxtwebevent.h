@@ -45,6 +45,7 @@
 #include <QSslCertificate>
 #endif
 QT_FORWARD_DECLARE_CLASS(QIODevice)
+QT_FORWARD_DECLARE_CLASS(QWebSocket)
 class QxtWebContent;
 
 class QXT_WEB_EXPORT QxtWebEvent
@@ -97,6 +98,16 @@ public:
     QSslCertificate clientCertificate;
 #endif
 };
+
+#ifdef QXT_HAVE_WEBSOCKETS
+class QXT_WEB_EXPORT QxtWebSocketEvent : public QxtWebRequestEvent
+{
+public:
+    QxtWebSocketEvent(int sessionID, int requestID, const QUrl& url, QWebSocket* socket);
+
+    QWebSocket* webSocket;
+};
+#endif
 
 /* TODO: refactor and implement
 class QXT_WEB_EXPORT QxtWebFileUploadEvent : public QxtWebEvent {

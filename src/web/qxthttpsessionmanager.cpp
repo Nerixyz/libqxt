@@ -448,7 +448,16 @@ void QxtHttpSessionManager::incomingRequest(quint32 requestID, const QHttpReques
         state.keepAlive = true;
     sessionMutex()->unlock();
 
-    QxtWebRequestEvent* event = new QxtWebRequestEvent(sessionID, requestID, QUrl::fromEncoded(header.path().toUtf8()));
+    QxtWebRequestEvent* event;
+#ifdef QXT_HAVE_WEBSOCKETS
+    bool isWebSocket = content && content->webSocket();
+    if (isWebSocket) {
+      event = new QxtWebSocketEvent(sessionID, requestID, QUrl::fromEncoded(header.path().toUtf8()), content->webSocket());
+    } else
+#endif
+    {
+      event = new QxtWebRequestEvent(sessionID, requestID, QUrl::fromEncoded(header.path().toUtf8()));
+    }
     qxt_d().eventLock.lock();
     qxt_d().pendingRequests.insert(QPair<int,int>(sessionID, requestID), event);
     qxt_d().eventLock.unlock();
@@ -480,20 +489,23 @@ void QxtHttpSessionManager::incomingRequest(quint32 requestID, const QHttpReques
         event->headers.insert(line.first.toLower(), line.second);
     }
     event->headers.insert("x-request-protocol", "HTTP/" + QString::number(state.httpMajorVersion) + '.' + QString::number(state.httpMinorVersion));
-    if (sessionID && session(sessionID))
+    QxtAbstractWebService* service = sessionID ? session(sessionID) : nullptr;
+    if (!service) {
+        service = qxt_d().staticService;
+        if (!service) {
+            postEvent(new QxtWebErrorEvent(0, requestID, 500, "Internal Configuration Error"));
+        }
+    }
+    if (content) {
+        content->setParent(service);
+    }
+#ifdef QXT_HAVE_WEBSOCKETS
+    if (isWebSocket) {
+        service->websocketEvent(static_cast<QxtWebSocketEvent*>(event));
+    } else
+#endif
     {
-        QxtAbstractWebService *service = session(sessionID);
-        if(content)
-            content->setParent(service); // Set content ownership to the service
         service->pageRequestedEvent(event);
-    }
-    else if (qxt_d().staticService)
-    {
-        qxt_d().staticService->pageRequestedEvent(event);
-    }
-    else
-    {
-        postEvent(new QxtWebErrorEvent(0, requestID, 500, "Internal Configuration Error"));
     }
 }
 
@@ -575,6 +587,7 @@ void QxtHttpSessionManager::processEvents()
     removeIDs.push_front(pagePos);
 
     QIODevice* device = connector()->getRequestConnection(requestID);
+    // XXX: This line segfaulted in testing once.
     QxtWebContent* content = qobject_cast<QxtWebContent*>(device);
     // TODO: This should only be invoked when pipelining occurs
     // In theory it shouldn't cause any problems as POST is specced to not be pipelined

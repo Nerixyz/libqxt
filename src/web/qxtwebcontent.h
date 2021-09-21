@@ -37,6 +37,7 @@
 #include <QHash>
 #include <qxtglobal.h>
 #include <qxtfifo.h>
+QT_FORWARD_DECLARE_CLASS(QWebSocket)
 
 class QxtWebContentPrivate;
 class QXT_WEB_EXPORT QxtWebContent : public QxtFifo
@@ -47,6 +48,11 @@ public:
 	    QIODevice* sourceDevice);
     explicit QxtWebContent(const QByteArray& content, QObject* parent = 0);
     static QHash<QString, QString> parseUrlEncodedQuery(const QString& data);
+
+#ifdef QXT_HAVE_WEBSOCKETS
+    explicit QxtWebContent(QWebSocket* ws, QObject* parent = nullptr);
+    QWebSocket* webSocket() const;
+#endif
 
     bool wantAll() const;
     qint64 bytesNeeded() const;

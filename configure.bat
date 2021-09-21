@@ -8,6 +8,7 @@ set DEBUG_OR_RELEASE=0
 set MSVCMODE=
 set DB=1
 set ZEROCONF=1
+set WEBSOCKETS=1
 set QXT_MODULES=docs core widgets network sql web designer berkeley zeroconf
 
 @rem -- initialize
@@ -60,6 +61,8 @@ if "%0" == "-debug"             goto debug
 if "%0" == "-release"           goto release
 if "%0" == "-debug_and_release" goto debug_and_release
 if "%0" == "-no-db"             goto nodb
+if "%0" == "-no-zeroconf"       goto nozeroconf
+if "%0" == "-no-websockets"     goto nowebsockets
 if "%0" == "-msvc"              goto msvc
 if "%0" == "/help"              goto help
 if "%0" == "-help"              goto help
@@ -207,6 +210,8 @@ goto top
     echo -release ............ Build Qxt without debugging support
     echo -debug_and_release .. Build Qxt with and without debugging support
     echo -no-db .............. Do not link to Berkeley DB
+    echo -no-zeroconf ........ Do not link to Zeroconf
+    echo -no-websockets ...... Do not link to QtWebSockets
     echo -nomake (module) .... Do not compile the specified module
     echo                       options: %QXT_MODULES%
 
@@ -331,7 +336,7 @@ echo DEFINES += QXT_NO_DB >> %QXT_VARS%
 echo        Berkeley DB disabled.
 
 :detectzeroconf
-if "%ZEROCONF%"=="0" goto alltestsok
+if "%ZEROCONF%"=="0" goto detectwebsockets
 echo    Testing for Zeroconf...
 echo ZEROCONF... >> %CONFIG_LOG%
 if not exist %QXT_BUILD_TREE%\config.tests\zeroconf mkdir %QXT_BUILD_TREE%\config.tests\zeroconf
@@ -347,7 +352,7 @@ echo DEFINES -= QXT_NO_ZEROCONF >> %QMAKE_CACHE%
 echo DEFINES += QXT_HAVE_ZEROCONF >> %QXT_VARS%
 echo DEFINES -= QXT_NO_ZEROCONF >> %QXT_VARS%
 echo        Zeroconf enabled.
-goto alltestsok
+goto detectwebsockets
 
 :zeroconffailed
 set ZEROCONF=0
@@ -356,6 +361,33 @@ echo DEFINES += QXT_NO_ZEROCONF >> %QMAKE_CACHE%
 echo DEFINES -= QXT_HAVE_ZEROCONF >> %QXT_VARS%
 echo DEFINES += QXT_NO_ZEROCONF >> %QXT_VARS%
 echo        Zeroconf disabled.
+
+:detectwebsockets
+if "%WEBSOCKETS%"=="0" goto alltestsok
+echo    Testing for WebSockets...
+echo WEBSOCKETS... >> %CONFIG_LOG%
+if not exist %QXT_BUILD_TREE%\config.tests\websockets mkdir %QXT_BUILD_TREE%\config.tests\websockets
+cd %QXT_BUILD_TREE%\config.tests\websockets
+%QMAKE_BIN% %QXT_SOURCE_TREE%\config.tests\websockets\websockets.pro >> %CONFIG_LOG% 2>&1
+if errorlevel 1 goto websocketsfailed
+call %MAKE_BIN% clean >> %CONFIG_LOG% 2>&1
+call %MAKE_BIN% >> %CONFIG_LOG% 2>&1
+if errorlevel 1 goto websocketsfailed
+set WEBSOCKETS=1
+echo DEFINES += QXT_HAVE_WEBSOCKETS >> %QMAKE_CACHE%
+echo DEFINES -= QXT_NO_WEBSOCKETS >> %QMAKE_CACHE%
+echo DEFINES += QXT_HAVE_WEBSOCKETS >> %QXT_VARS%
+echo DEFINES -= QXT_NO_WEBSOCKETS >> %QXT_VARS%
+echo        WebSockets enabled.
+goto alltestsok
+
+:websocketsfailed
+set WEBSOCKETS=0
+echo DEFINES -= QXT_HAVE_WEBSOCKETS >> %QMAKE_CACHE%
+echo DEFINES += QXT_NO_WEBSOCKETS >> %QMAKE_CACHE%
+echo DEFINES -= QXT_HAVE_WEBSOCKETS >> %QXT_VARS%
+echo DEFINES += QXT_NO_WEBSOCKETS >> %QXT_VARS%
+echo        WebSockets disabled.
 
 :alltestsok
 if "%DEBUG_OR_RELEASE%"=="1" goto skiprelease

@@ -74,6 +74,11 @@ the associated session.
  */
 
 #include "qxtabstractwebservice.h"
+#include "qxtwebevent.h"
+#ifdef QXT_HAVE_WEBSOCKETS
+#include <QWebSocketServer>
+#include <QWebSocket>
+#endif
 
 #ifndef QXT_DOXYGEN_RUN
 class QxtAbstractWebServicePrivate : public QxtPrivate<QxtAbstractWebService>
@@ -127,3 +132,30 @@ QxtAbstractWebSessionManager* QxtAbstractWebService::sessionManager() const
  *
  * \sa QxtWebRequestEvent
  */
+
+#ifdef QXT_HAVE_WEBSOCKETS
+/*!
+ * This event handler must be reimplemented in subclasses to receive incoming
+ * WebSockets request events. The supplied \a event object is owned by the session
+ * manager and remains valid until a corresponding response has been
+ * processed. It must never be deleted by a service handler.
+ *
+ * The associated QWebSocket object is owned by the underlying QTcpSocket.
+ * Service handlers may reparent or delete these as desired.
+ *
+ * Unlike \a pageRequestedEvent, no response event is required. Instead, the
+ * socket is automatically connected and the QWebSocket object controls the
+ * connection. To signal an error, close the QWebSocket.
+ *
+ * The default implementation of this function closes the QWebSocket
+ * immediately to prevent resource leaks.
+ *
+ * \sa QxtWebSocketEvent
+ */
+void QxtAbstractWebService::websocketEvent(QxtWebSocketEvent* event)
+{
+  event->webSocket->close(QWebSocketProtocol::CloseCodeBadOperation);
+  event->webSocket->deleteLater();
+  event->webSocket = nullptr;
+}
+#endif

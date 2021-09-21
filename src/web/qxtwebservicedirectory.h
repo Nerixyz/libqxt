@@ -49,6 +49,9 @@ public:
     QxtAbstractWebService* service(const QString& path) const;
 
     virtual void pageRequestedEvent(QxtWebRequestEvent* event);
+#ifdef QXT_HAVE_WEBSOCKETS
+    virtual void websocketEvent(QxtWebSocketEvent* event);
+#endif
 //     virtual void functionInvokedEvent(QxtWebRequestEvent* event);
 
     QString defaultRedirect() const;

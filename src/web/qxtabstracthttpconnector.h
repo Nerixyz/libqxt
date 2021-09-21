@@ -64,6 +64,7 @@ protected:
 
 private Q_SLOTS:
     void incomingData(QIODevice* device = 0);
+    void websocketConnection();
     void disconnected();
 
 private:

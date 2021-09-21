@@ -178,6 +178,37 @@ QxtWebRequestEvent::~QxtWebRequestEvent()
  * Note that use of these values may not be portable across session managers.
  */
 
+#ifdef QXT_HAVE_WEBSOCKETS
+/*!
+\class QxtWebSocketEvent
+
+\inmodule QxtWeb
+
+\brief The QxtWebSocketEvent class describes an incoming WebSockets connection from a web browser
+
+The QxtWebSocketEvent class extends the information in a QxtWebRequestEvent to add a pending
+WebSockets channel.
+
+Unlike other QxtWebEvent subclasses, this one does not require or support any response events.
+Failure should be indicated by closing the QWebSocket.
+
+The QWebSocket object is, by default, owned by the QTcpSocket connected to it, and it will be
+automatically deleted when the connection is closed.
+
+QWebSockets may only be used on the same thread as the QxtAbstractHttpConnector that created them.
+*/
+
+
+/*!
+ * Constructs a QxtWebSocketEvent for the specified \a sessionID, \a requestID and \a url.
+ */
+QxtWebSocketEvent::QxtWebSocketEvent(int _sessionID, int _requestID, const QUrl& _url, QWebSocket* socket)
+        : QxtWebRequestEvent(_sessionID, _requestID, _url), webSocket(socket)
+{
+    // initializers only
+}
+#endif
+
 /*
 QxtWebFileUploadEvent::QxtWebFileUploadEvent(int sessionID)
 : QxtWebEvent(QxtWebEvent::FileUpload, sessionID) {}

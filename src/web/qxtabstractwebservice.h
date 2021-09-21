@@ -36,6 +36,7 @@
 #include "qxtabstractwebsessionmanager.h"
 class QxtWebEvent;
 class QxtWebRequestEvent;
+class QxtWebSocketEvent;
 
 class QxtAbstractWebServicePrivate;
 class QXT_WEB_EXPORT QxtAbstractWebService : public QObject
@@ -50,6 +51,9 @@ public:
         sessionManager()->postEvent(event);
     }
     virtual void pageRequestedEvent(QxtWebRequestEvent* event) = 0;
+#ifdef QXT_HAVE_WEBSOCKETS
+    virtual void websocketEvent(QxtWebSocketEvent* event);
+#endif
     // virtual void functionInvokedEvent(QxtWebRequestEvent* event) = 0; // todo: implement
 
 private:

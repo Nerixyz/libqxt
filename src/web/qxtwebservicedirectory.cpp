@@ -176,6 +176,23 @@ void QxtWebServiceDirectory::pageRequestedEvent(QxtWebRequestEvent* event)
     }
 }
 
+#ifdef QXT_HAVE_WEBSOCKETS
+/*!
+ * \reimp
+ */
+void QxtWebServiceDirectory::websocketEvent(QxtWebSocketEvent* event)
+{
+  QString path = extractPathLevel(event);
+  if (path.isEmpty() || event->url.path().isEmpty() || !qxt_d().services.contains(path))
+  {
+    // Use the default behavior to reject the request
+    QxtAbstractWebService::websocketEvent(event);
+  } else {
+    qxt_d().services[path]->websocketEvent(event);
+  }
+}
+#endif
+
 /*
  * \reimp unimplemented
  */

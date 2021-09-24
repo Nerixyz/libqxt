@@ -86,8 +86,11 @@ contains(QXT,web) {
   QMAKE_EXTRA_TARGETS += libqxtweb
   libqxtweb.target = libqxt/lib/libQxtWeb.a
   libqxtweb.depends = libqxtnetwork
+  !contains(QXT,websockets) {
+    libqxt_conf.commands += -no-websockets
+  }
 } else {
-  libqxt_conf.commands += -nomake web
+  libqxt_conf.commands += -nomake web -no-websockets
 }
 
 contains(QXT,network) {

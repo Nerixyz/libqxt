@@ -113,12 +113,12 @@ if(WIN32)
     )
 elseif(UNIX)
     list(APPEND CORE_SOURCES
-        qxtfilelock_unix.cpp
-        qxtserialdevice_p.h
-        qxtserialdevice_unix.cpp
-        qxtserialdevice.cpp
-        qxtserialdevice.h
-        qxttemporarydir_unix.cpp
+        unix/qxtfilelock_unix.cpp
+        unix/qxtserialdevice_p.h
+        unix/qxtserialdevice_unix.cpp
+        unix/qxtserialdevice.cpp
+        unix/qxtserialdevice.h
+        unix/qxttemporarydir_unix.cpp
     )
 endif()
 

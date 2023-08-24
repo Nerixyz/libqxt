@@ -38,7 +38,7 @@ set(NETWORK_SOURCES
     qxtxmlrpcclient.h
 )
 
-find_package(libssh2 REQUIRED CONFIG)
+find_package(libssh2)
 
 if (libssh2_FOUND)
     list(APPEND NETWORK_SOURCES

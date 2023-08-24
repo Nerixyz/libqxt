@@ -8,7 +8,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED On)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 option(QXT_STATIC "Build QXT as a static library" Off)
-option(QXT_LIBSSH_STATIC "Build libssh2 as a static library" On)
 set(QXT_QT_MAJOR_VERSION "5" CACHE STRING "Major Qt version to use (5/6)")
 
 if (QXT_STATIC)

@@ -56,16 +56,16 @@ jobs:
           conan --version
           conan profile detect -f
 
-      - name: Install dependencies
-        run: |
-          mkdir build
-          cd build
-          conan install .. -s build_type=RelWithDebInfo -c tools.cmake.cmaketoolchain:generator=Ninja -b missing --output-folder=.
+      #- name: Install dependencies
+      #  run: |
+      #    mkdir build
+      #    cd build
+      #    conan install .. -s build_type=RelWithDebInfo -c tools.cmake.cmaketoolchain:generator=Ninja -b missing --output-folder=.
 
       - name: Build
         run: |
           cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja
+          cmake .. -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja
           cmake --build . -t libqxtcore -t libqxtnetwork -t libqxtsql -t libqxtweb -t libqxtwidgets -t libqxtdesigner
 
       - name: Clean Conan cache

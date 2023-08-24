@@ -1,0 +1,76 @@
+---
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - resurrect
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: 'Build ${{ matrix.os }}, Qt ${{ matrix.qt-version }}'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+        qt-version: [5.15.2]
+
+      fail-fast: false
+
+    steps:
+      - name: Set environment variables for windows-latest
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "vs_version=2022" >> "$GITHUB_ENV"
+        shell: bash
+
+      - uses: actions/checkout@v3
+
+      - name: Install Qt5
+        if: startsWith(matrix.qt-version, '5.')
+        uses: jurplel/install-qt-action@v3.3.0
+        with:
+          cache: true
+          cache-key-prefix: ${{ runner.os }}-QtCache-${{ matrix.qt-version }}-v2
+          version: ${{ matrix.qt-version }}
+
+      - name: Enable Developer Command Prompt (Windows)
+        if: startsWith(matrix.os, 'windows')
+        uses: ilammy/msvc-dev-cmd@v1.12.1
+
+      - name: Cache conan packages
+        uses: actions/cache@v3
+        with:
+          key: ${{ runner.os }}-conan-${{ hashFiles('**/conanfile.py') }}
+          path: ~/.conan2/
+
+      - uses: actions/setup-python@v4
+      - run: pip install conan
+
+      - name: Setup Conan
+        run: |
+          conan --version
+          conan profile detect -f
+        shell: powershell
+
+      - name: Install dependencies
+        run: |
+          mkdir build
+          cd build
+          conan install .. -s build_type=RelWithDebInfo -c tools.cmake.cmaketoolchain:generator=Ninja -b missing --output-folder=.
+        shell: powershell
+
+      - name: Build
+        run: |
+          cd build
+          cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja
+          cmake --build . -t libqxtcore -t libqxtnetwork -t libqxtsql -t libqxtweb -t libqxtwidgets -t libqxtdesigner
+
+      - name: Clean Conan cache
+        run: conan cache clean --source --build --download "*"

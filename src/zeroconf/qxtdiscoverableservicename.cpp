@@ -6,9 +6,9 @@
 
 
 #ifdef USE_AVAHI
-#include <qxtmdns_avahi.h>
+#include <avahi/qxtmdns_avahi.h>
 #else
-#include <qxtmdns_bonjour.h>
+#include <bonjour/qxtmdns_bonjour.h>
 #endif
 
 class QxtDiscoverableServiceNamePrivate : public QxtPrivate<QxtDiscoverableServiceName>

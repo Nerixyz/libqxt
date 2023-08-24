@@ -1,0 +1,7 @@
+add_subdirectory(core)
+add_subdirectory(widgets)
+add_subdirectory(network)
+add_subdirectory(web)
+add_subdirectory(zeroconf)
+add_subdirectory(designer)
+add_subdirectory(sql)

@@ -51,3 +51,9 @@ bld.inf
 .qmake.stash
 bin
 .build
+
+.vscode
+.cache
+build
+CMakePresets.json
+CMakeUserPresets.json

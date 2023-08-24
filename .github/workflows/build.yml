@@ -55,14 +55,12 @@ jobs:
         run: |
           conan --version
           conan profile detect -f
-        shell: powershell
 
       - name: Install dependencies
         run: |
           mkdir build
           cd build
           conan install .. -s build_type=RelWithDebInfo -c tools.cmake.cmaketoolchain:generator=Ninja -b missing --output-folder=.
-        shell: powershell
 
       - name: Build
         run: |

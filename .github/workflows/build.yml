@@ -54,7 +54,7 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install \
               cmake \
-              ninja
+              ninja-build
 
       - name: Install dependencies (macOS)
         if: startsWith(matrix.os, 'macos')
@@ -86,7 +86,7 @@ jobs:
       - name: Build
         run: |
           cd build
-          cmake .. -DCMAKE_TOOLCHAIN_FILE="conan_toolchain.cmake" -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja
+          cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo -GNinja
           cmake --build . -t libqxtcore -t libqxtnetwork -t libqxtsql -t libqxtweb -t libqxtwidgets -t libqxtdesigner
 
       - name: Clean Conan cache

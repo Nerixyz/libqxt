@@ -48,6 +48,24 @@ jobs:
           key: ${{ runner.os }}-conan-${{ hashFiles('**/conanfile.py') }}
           path: ~/.conan2/
 
+      - name: Install dependencies (Ubuntu)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install \
+              cmake \
+              ninja
+
+      - name: Install dependencies (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: |
+          brew install cmake
+
+      - name: Install dependencies (Windows)
+        if: startsWith(matrix.os, 'windows')
+        run: |
+          choco install ninja
+
       - uses: actions/setup-python@v4
       - run: pip install conan
 

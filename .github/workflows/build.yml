@@ -59,7 +59,7 @@ jobs:
       - name: Install dependencies (macOS)
         if: startsWith(matrix.os, 'macos')
         run: |
-          brew install cmake
+          brew install cmake ninja
 
       - name: Install dependencies (Windows)
         if: startsWith(matrix.os, 'windows')

@@ -56,9 +56,12 @@ jobs:
           conan --version
           conan profile detect -f
 
+      - name: Setup build
+        run: |
+          mkdir build
+
       #- name: Install dependencies
       #  run: |
-      #    mkdir build
       #    cd build
       #    conan install .. -s build_type=RelWithDebInfo -c tools.cmake.cmaketoolchain:generator=Ninja -b missing --output-folder=.
 

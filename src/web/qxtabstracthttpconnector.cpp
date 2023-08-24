@@ -222,7 +222,7 @@ void QxtAbstractHttpConnector::incomingData(QIODevice* device)
       if (header.value("upgrade").contains("websocket") && qobject_cast<QTcpSocket*>(device) && header.hasKey("sec-websocket-key")) {
         // Prepare to receive the connection
         QString key = header.value("sec-websocket-key");
-        qxt_d().webSockets[key] = (QxtAbstractHttpConnectorPrivate::WebSocketRequest){
+        qxt_d().webSockets[key] = QxtAbstractHttpConnectorPrivate::WebSocketRequest{
           header,
           static_cast<QTcpSocket*>(device),
         };

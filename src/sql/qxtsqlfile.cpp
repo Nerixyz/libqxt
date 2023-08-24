@@ -239,10 +239,10 @@ bool QxtSqlFile::exec(bool transaction)
       stack.takeLast();
       continue;
     } else if (ext == Try) {
-      stack << (StackEntry){ stmt.target, true, false };
+      stack << StackEntry{ stmt.target, true, false };
     } else if (ext == If || ext == ElseIf || ext == Else) {
       if (ext == If) {
-        stack << (StackEntry){ stmt.target, false, false };
+        stack << StackEntry{ stmt.target, false, false };
       } else {
         stack.back().target = stmt.target;
       }

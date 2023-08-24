@@ -63,6 +63,8 @@ QxtJSONRpcClient::QxtJSONRpcClient(QObject * parent)
     d->networkManager = new QNetworkAccessManager(this);
 }
 
+QxtJSONRpcClient::~QxtJSONRpcClient() = default;
+
 /*!
   returns the url of the remote service
  */

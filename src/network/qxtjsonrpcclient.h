@@ -44,7 +44,8 @@ class QXT_NETWORK_EXPORT QxtJSONRpcClient : public QObject
 {
     Q_OBJECT
 public:
-    QxtJSONRpcClient(QObject * parent = 0);
+    QxtJSONRpcClient(QObject *parent = 0);
+    ~QxtJSONRpcClient();
 
     QUrl serviceUrl() const;
     void setServiceUrl(QUrl uri);

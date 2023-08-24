@@ -76,6 +76,8 @@ QxtXmlRpcClient::QxtXmlRpcClient(QObject * parent)
     d->networkManager = new QNetworkAccessManager(this);
 }
 
+QxtXmlRpcClient::~QxtXmlRpcClient() = default;
+
 /*!
   returns the url of the remote service
  */

@@ -43,6 +43,8 @@ class QXT_NETWORK_EXPORT QxtJSONRpcCall : public QObject
 {
     Q_OBJECT
 public:
+    ~QxtJSONRpcCall();
+
     bool isFault() const;
     QVariant result() const;
     QNetworkReply::NetworkError error() const;

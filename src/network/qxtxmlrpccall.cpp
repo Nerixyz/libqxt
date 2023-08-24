@@ -130,6 +130,8 @@ QxtXmlRpcCall::QxtXmlRpcCall(QNetworkReply * reply)
     connect(reply, SIGNAL(finished()), this, SLOT(d_finished()));
 }
 
+QxtXmlRpcCall::~QxtXmlRpcCall() = default;
+
 void QxtXmlRpcCallPrivate::d_finished()
 {
 

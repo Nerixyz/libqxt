@@ -45,6 +45,7 @@ class QXT_NETWORK_EXPORT QxtXmlRpcClient : public QObject
     Q_OBJECT
 public:
     QxtXmlRpcClient(QObject * parent = 0);
+    ~QxtXmlRpcClient();
 
     QUrl serviceUrl() const;
     void setServiceUrl(QUrl uri);

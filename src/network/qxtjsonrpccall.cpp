@@ -130,6 +130,8 @@ QxtJSONRpcCall::QxtJSONRpcCall(QNetworkReply * reply)
     connect(reply, SIGNAL(finished()), this, SLOT(d_finished()));
 }
 
+QxtJSONRpcCall::~QxtJSONRpcCall() = default;
+
 void QxtJSONRpcCallPrivate::d_finished()
 {
     if (!reply->error())
